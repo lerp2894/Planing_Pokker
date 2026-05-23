@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planning Poker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Pantalla de inicio -->
+  <div id="login-screen" class="screen active">
+    <div class="card login-card">
+      <h1>🃏 Planning Poker</h1>
+      <div class="form-group">
+        <label for="userName">Tu nombre</label>
+        <input type="text" id="userName" placeholder="Ej: Carlos">
+      </div>
+      <div class="form-group">
+        <label for="roomId">Sala (ID)</label>
+        <input type="text" id="roomId" placeholder="Ej: mi-sala">
+      </div>
+      <div class="form-group">
+        <label for="role">Rol</label>
+        <select id="role">
+          <option value="player">Jugador</option>
+          <option value="spectator">Espectador</option>
+        </select>
+      </div>
+      <button id="joinBtn" class="btn-primary">Entrar a la sala</button>
+    </div>
+  </div>
+
+  <!-- Pantalla de la sala -->
+  <div id="room-screen" class="screen">
+    <header>
+      <h2>Sala: <span id="roomTitle"></span></h2>
+      <span id="moderatorBadge" class="badge" style="display:none;">👑 Moderador</span>
+    </header>
+
+    <div class="main-layout">
+      <aside class="sidebar">
+        <h3>Usuarios (<span id="userCount">0</span>)</h3>
+        <ul id="userList"></ul>
+      </aside>
+
+      <section class="content">
+        <div id="storySection">
+          <h3>Historia actual</h3>
+          <div id="storyInfo">No hay historia activa.</div>
+        </div>
+
+        <!-- Panel de votación (solo jugadores en estado voting) -->
+        <div id="votingPanel" style="display:none;">
+          <h4>Elige una carta</h4>
+          <div id="cardsContainer" class="cards"></div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultsPanel" style="display:none;">
+          <h4>Resultados</h4>
+          <div id="resultsGrid" class="votes-grid"></div>
+          <p>Promedio: <strong id="averageResult">-</strong></p>
+        </div>
+
+        <!-- Botón para limpiar votos (visible para todos cuando hay resultados) -->
+        <button id="clearVotesBtn" class="btn-danger" style="display:none;">Limpiar votos (repetir estimación)</button>
+
+        <!-- Controles de moderador (solo para el moderador) -->
+        <div id="moderatorControls" style="display:none;">
+          <h4>Moderador</h4>
+          <input type="text" id="newStoryInput" placeholder="Título de la historia">
+          <button id="addStoryBtn" class="btn-secondary">Agregar historia</button>
+          <div class="threshold-control">
+            <label for="thresholdInput">Diferencia para resaltar (umbral):</label>
+            <input type="number" id="thresholdInput" value="5" min="0" step="1">
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
