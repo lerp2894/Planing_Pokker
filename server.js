@@ -30,6 +30,7 @@ function sanitizeRoomForUser(room, userId) {
       }
     }
   }
+  // Aseguramos que lastClearBy se envíe tal cual (no sensible)
   return copy;
 }
 
@@ -46,7 +47,8 @@ io.on('connection', (socket) => {
         users: [],
         stories: [],
         currentStoryId: null,
-        status: 'idle'
+        status: 'idle',
+        lastClearBy: null   // <-- nuevo campo
       };
       rooms.set(roomId, room);
     }
@@ -75,6 +77,7 @@ io.on('connection', (socket) => {
     room.stories.push({ id: newId, title: title.trim(), votes: [], revealed: false });
     room.currentStoryId = newId;
     room.status = 'voting';
+    room.lastClearBy = null;   // nueva historia, limpiamos el indicador
     io.to(roomId).emit('room-update', sanitizeRoomForUser(room, socket.id));
   });
 
@@ -99,6 +102,7 @@ io.on('connection', (socket) => {
     if (allVoted) {
       story.revealed = true;
       room.status = 'revealed';
+      room.lastClearBy = null;   // al revelar, también se limpia el indicador de limpieza
     }
 
     room.users.forEach(u => {
@@ -106,6 +110,7 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Limpiar votos – ahora registra quién limpia
   socket.on('clear-votes', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room || room.status !== 'revealed') return;
@@ -114,12 +119,14 @@ io.on('connection', (socket) => {
       story.votes = [];
       story.revealed = false;
       room.status = 'voting';
+      room.lastClearBy = socket.id;   // <-- guardamos quién limpió
     }
     room.users.forEach(u => {
       io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
     });
   });
 
+  // Cambiar rol
   socket.on('change-role', ({ roomId, newRole }) => {
     const room = rooms.get(roomId);
     if (!room) return;
@@ -139,6 +146,7 @@ io.on('connection', (socket) => {
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
+            room.lastClearBy = null;
           }
         }
       }
@@ -170,6 +178,7 @@ io.on('connection', (socket) => {
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
+            room.lastClearBy = null;
           }
         }
       }
@@ -200,6 +209,7 @@ io.on('connection', (socket) => {
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
+            room.lastClearBy = null;
           }
         }
       }

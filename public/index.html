@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Planning Poker</title>
+  <title>Planning Poker by LuisRP</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Pantalla de inicio -->
   <div id="login-screen" class="screen active">
     <div class="card login-card">
-      <h1>🃏 Planning Poker by LuisRP</h1>
+      <h1>🃏 Planning Poker</h1>
       <div class="form-group">
         <label for="userName">Tu nombre</label>
         <input type="text" id="userName" placeholder="Ej: Carlos">
@@ -76,12 +76,15 @@
           <button id="addStoryBtn" class="btn-secondary">Agregar historia</button>
           <div class="threshold-control">
             <label for="thresholdInput">Diferencia para resaltar (umbral):</label>
-            <input type="number" id="thresholdInput" value="2" min="0" step="1">
+            <input type="number" id="thresholdInput" value="5" min="0" step="1">
           </div>
         </div>
       </section>
     </div>
   </div>
+
+  <!-- Toast de notificación -->
+  <div id="toast" class="toast hidden"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>

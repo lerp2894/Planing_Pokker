@@ -175,6 +175,38 @@ header {
   background: #f8d7da;
 }
 
+.clear-icon {
+  margin-left: 4px;
+  font-size: 0.9em;
+  cursor: default;
+  animation: pulse 1.5s infinite;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #333;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 999;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(20px);
+  opacity: 0;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast.hidden {
+  display: none;
+}
+
 .content {
   flex: 1;
   background: white;

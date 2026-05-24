@@ -21,6 +21,7 @@ const newStoryInput = document.getElementById('newStoryInput');
 const addStoryBtn = document.getElementById('addStoryBtn');
 const thresholdInput = document.getElementById('thresholdInput');
 const sessionTimer = document.getElementById('sessionTimer');
+const toast = document.getElementById('toast');
 
 const socket = io();
 let currentRoom = null;
@@ -29,6 +30,7 @@ let myName = '';
 let selectedCardValue = null;
 let sessionStartTime = null;
 let timerInterval = null;
+let lastClearBy = null; // para detectar cambios
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
 
@@ -57,7 +59,26 @@ function selectCard(value, cardElement) {
   }
 }
 
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add('show');
+  toast.classList.remove('hidden');
+  clearTimeout(toast.timeout);
+  toast.timeout = setTimeout(() => {
+    toast.classList.remove('show');
+    toast.classList.add('hidden');
+  }, 4000);
+}
+
 socket.on('room-update', (room) => {
+  // Detectar si se acaba de limpiar los votos (cambio en lastClearBy)
+  if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
+    const cleaner = room.users.find(u => u.id === room.lastClearBy);
+    if (cleaner) {
+      showToast(`🧹 Votos limpiados por ${cleaner.name}`);
+    }
+  }
+  lastClearBy = room.lastClearBy;
   renderRoom(room);
 });
 
@@ -111,6 +132,7 @@ function renderRoom(room) {
     const li = document.createElement('li');
     li.className = 'user-item';
 
+    // Color según rol y estado
     if (user.role === 'spectator') {
       li.style.backgroundColor = '#cce5ff';
     } else if (room.status === 'voting' || room.status === 'revealed') {
@@ -123,6 +145,16 @@ function renderRoom(room) {
     const roleLabel = user.role === 'player' ? 'Jugador' : 'Espectador';
     nameSpan.textContent = user.name + (user.id === room.moderatorId ? ' 👑' : '') + ` (${roleLabel})`;
 
+    // Ícono de limpieza si corresponde
+    if (room.lastClearBy === user.id) {
+      const clearIcon = document.createElement('span');
+      clearIcon.className = 'clear-icon';
+      clearIcon.textContent = '🧹';
+      clearIcon.title = 'Limpió los votos';
+      nameSpan.appendChild(clearIcon);
+    }
+
+    // Botón expulsar
     if (room.moderatorId === socket.id && user.id !== socket.id) {
       const kickBtn = document.createElement('button');
       kickBtn.textContent = 'X';
@@ -150,6 +182,7 @@ function renderRoom(room) {
     storyInfo.textContent = 'No hay historia activa.';
   }
 
+  // Panel votación
   if (myRole === 'player' && room.status === 'voting') {
     votingPanel.style.display = 'block';
     if (story && selectedCardValue != null) {
@@ -170,6 +203,7 @@ function renderRoom(room) {
     if (room.status !== 'voting') selectedCardValue = null;
   }
 
+  // Resultados
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
     resultsGrid.innerHTML = '';
@@ -246,7 +280,7 @@ joinBtn.addEventListener('click', () => {
   socket.emit('join-room', { roomId, userName, role: myRole });
   loginScreen.classList.remove('active');
   roomScreen.classList.add('active');
-  startTimer(); // Iniciar el temporizador al entrar a la sala
+  startTimer();
 });
 
 addStoryBtn.addEventListener('click', () => {
@@ -265,7 +299,6 @@ toggleRoleBtn.addEventListener('click', () => {
   socket.emit('change-role', { roomId: currentRoom.id, newRole });
 });
 
-// Limpiar temporizador al cerrar/recargar la página
 window.addEventListener('beforeunload', () => {
   stopTimer();
   socket.disconnect();
