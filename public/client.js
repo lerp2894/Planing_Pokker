@@ -15,6 +15,7 @@ const resultsPanel = document.getElementById('resultsPanel');
 const resultsGrid = document.getElementById('resultsGrid');
 const averageResult = document.getElementById('averageResult');
 const clearVotesBtn = document.getElementById('clearVotesBtn');
+const toggleRoleBtn = document.getElementById('toggleRoleBtn');
 const moderatorControls = document.getElementById('moderatorControls');
 const newStoryInput = document.getElementById('newStoryInput');
 const addStoryBtn = document.getElementById('addStoryBtn');
@@ -22,7 +23,7 @@ const thresholdInput = document.getElementById('thresholdInput');
 
 const socket = io();
 let currentRoom = null;
-let myRole = 'player';
+let myRole = 'player';   // se actualizará al recibir room-update
 let myName = '';
 let selectedCardValue = null;
 
@@ -69,7 +70,15 @@ function renderRoom(room) {
   roomTitle.textContent = room.id;
   moderatorBadge.style.display = (room.moderatorId === socket.id) ? 'inline-block' : 'none';
 
-  // Lista de usuarios con colores: verde (votó), rojo (no votó), azul claro (espectador)
+  // Actualizar mi rol según el servidor
+  const me = room.users.find(u => u.id === socket.id);
+  if (me) {
+    myRole = me.role;
+    // Actualizar texto del botón de cambio de rol
+    toggleRoleBtn.textContent = myRole === 'player' ? 'Cambiar a Espectador' : 'Cambiar a Jugador';
+  }
+
+  // Lista de usuarios
   userList.innerHTML = '';
   room.users.forEach(user => {
     const li = document.createElement('li');
@@ -81,13 +90,13 @@ function renderRoom(room) {
     } else if (room.status === 'voting' || room.status === 'revealed') {
       li.style.backgroundColor = user.hasVoted ? '#d4edda' : '#f8d7da'; // verde / rojo
     } else {
-      li.style.backgroundColor = ''; // idle, sin color especial
+      li.style.backgroundColor = ''; // idle
     }
 
     const nameSpan = document.createElement('span');
-    nameSpan.textContent = user.name + (user.id === room.moderatorId ? ' 👑' : '') + ` (${user.role})`;
+    const roleLabel = user.role === 'player' ? 'Jugador' : 'Espectador';
+    nameSpan.textContent = user.name + (user.id === room.moderatorId ? ' 👑' : '') + ` (${roleLabel})`;
 
-    // Botón de expulsar solo para moderador y para otros usuarios
     if (room.moderatorId === socket.id && user.id !== socket.id) {
       const kickBtn = document.createElement('button');
       kickBtn.textContent = 'X';
@@ -119,6 +128,7 @@ function renderRoom(room) {
   // Panel de votación (solo jugadores en estado voting)
   if (myRole === 'player' && room.status === 'voting') {
     votingPanel.style.display = 'block';
+    // Mantener selección si ya votó
     if (story && selectedCardValue != null) {
       const existingVote = story.votes.find(v => v.userId === socket.id);
       if (existingVote && existingVote.value != null) {
@@ -137,7 +147,7 @@ function renderRoom(room) {
     if (room.status !== 'voting') selectedCardValue = null;
   }
 
-  // Resultados y botón de limpiar votos
+  // Resultados y botón de limpiar
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
     resultsGrid.innerHTML = '';
@@ -152,7 +162,6 @@ function renderRoom(room) {
     const threshold = parseInt(thresholdInput?.value || 0, 10);
     const diff = (minValue !== null && maxValue !== null) ? maxValue - minValue : 0;
 
-    // Información de diferencia
     const diffInfo = document.createElement('div');
     diffInfo.className = 'diff-info';
     if (minValue !== null && maxValue !== null && minValue !== maxValue) {
@@ -168,7 +177,6 @@ function renderRoom(room) {
       diffInfo.textContent = 'No hay votos numéricos.';
     }
 
-    // Tarjetas de votos – resaltar en azul todos los extremos si diff > threshold
     story.votes.forEach(v => {
       const div = document.createElement('div');
       div.className = 'vote-card';
@@ -190,12 +198,10 @@ function renderRoom(room) {
       averageResult.textContent = 'N/A';
     }
 
-    // Agregar diffInfo después de los resultados
     const oldDiff = resultsPanel.querySelector('.diff-info');
     if (oldDiff) oldDiff.remove();
     resultsPanel.appendChild(diffInfo);
 
-    // Mostrar botón de limpiar votos para todos
     clearVotesBtn.style.display = 'block';
   } else {
     resultsPanel.style.display = 'none';
@@ -210,7 +216,7 @@ function renderRoom(room) {
   }
 }
 
-// Eventos de botones
+// Eventos
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -229,9 +235,15 @@ addStoryBtn.addEventListener('click', () => {
   newStoryInput.value = '';
 });
 
-// Limpiar votos (ahora disponible para todos)
 clearVotesBtn.addEventListener('click', () => {
   socket.emit('clear-votes', { roomId: currentRoom.id });
+});
+
+// Cambiar rol
+toggleRoleBtn.addEventListener('click', () => {
+  const newRole = myRole === 'player' ? 'spectator' : 'player';
+  socket.emit('change-role', { roomId: currentRoom.id, newRole });
+  // El servidor actualizará el estado y nos enviará room-update
 });
 
 buildCards();

@@ -280,6 +280,11 @@ header {
   transform: none;
 }
 
+#roleSwitch {
+  margin: 1rem 0;
+  text-align: center;
+}
+
 #clearVotesBtn {
   display: block;
   margin: 1rem auto;

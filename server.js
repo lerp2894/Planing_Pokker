@@ -106,10 +106,10 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Limpiar votos – ahora cualquier usuario puede hacerlo
+  // Limpiar votos – cualquier usuario
   socket.on('clear-votes', ({ roomId }) => {
     const room = rooms.get(roomId);
-    if (!room || room.status !== 'revealed') return; // solo cuando ya se revelaron
+    if (!room || room.status !== 'revealed') return;
     const story = room.stories.find(s => s.id === room.currentStoryId);
     if (story) {
       story.votes = [];
@@ -121,7 +121,43 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Expulsar usuario – al expulsar, si todos los jugadores restantes ya votaron, se revela automáticamente
+  // Cambiar rol (jugador <-> espectador)
+  socket.on('change-role', ({ roomId, newRole }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user) return;
+    if (newRole !== 'player' && newRole !== 'spectator') return;
+
+    const oldRole = user.role;
+    user.role = newRole;
+
+    // Si cambia a espectador y había votado, eliminar su voto
+    if (newRole === 'spectator' && room.currentStoryId != null) {
+      const story = room.stories.find(s => s.id === room.currentStoryId);
+      if (story) {
+        story.votes = story.votes.filter(v => v.userId !== socket.id);
+        // Si estábamos en votación, comprobar si todos los jugadores restantes ya votaron
+        if (room.status === 'voting') {
+          const players = room.users.filter(u => u.role === 'player');
+          const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
+          if (allVoted) {
+            story.revealed = true;
+            room.status = 'revealed';
+          }
+        }
+      }
+    } else if (newRole === 'player' && room.currentStoryId != null) {
+      // Si se vuelve jugador durante votación, simplemente no tiene voto aún; el sistema esperará
+      // No se revela automáticamente hasta que vote
+    }
+
+    room.users.forEach(u => {
+      io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+    });
+  });
+
+  // Expulsar usuario (moderador)
   socket.on('kick-user', ({ roomId, targetUserId }) => {
     const room = rooms.get(roomId);
     if (!room || room.moderatorId !== socket.id) return;
@@ -135,7 +171,7 @@ io.on('connection', (socket) => {
         targetSocket.data.userName = null;
       }
 
-      // Después de expulsar, verificar si todos los jugadores ya votaron
+      // Verificar si al expulsar todos los jugadores restantes votaron
       if (room.status === 'voting' && room.currentStoryId != null) {
         const story = room.stories.find(s => s.id === room.currentStoryId);
         if (story) {
@@ -166,7 +202,7 @@ io.on('connection', (socket) => {
         room.moderatorId = room.users[0].id;
       }
 
-      // Al desconectarse un jugador, también podría revelarse si todos los restantes ya votaron
+      // Al desconectarse, podría revelarse si todos los jugadores restantes votaron
       if (room.status === 'voting' && room.currentStoryId != null) {
         const story = room.stories.find(s => s.id === room.currentStoryId);
         if (story) {

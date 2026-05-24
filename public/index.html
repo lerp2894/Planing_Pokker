@@ -20,7 +20,7 @@
         <input type="text" id="roomId" placeholder="Ej: mi-sala">
       </div>
       <div class="form-group">
-        <label for="role">Rol</label>
+        <label for="role">Rol inicial</label>
         <select id="role">
           <option value="player">Jugador</option>
           <option value="spectator">Espectador</option>
@@ -60,6 +60,11 @@
           <h4>Resultados</h4>
           <div id="resultsGrid" class="votes-grid"></div>
           <p>Promedio: <strong id="averageResult">-</strong></p>
+        </div>
+
+        <!-- Botón para cambiar de rol (visible para todos) -->
+        <div id="roleSwitch">
+          <button id="toggleRoleBtn" class="btn-secondary">Cambiar a Espectador</button>
         </div>
 
         <!-- Botón para limpiar votos (visible para todos cuando hay resultados) -->
