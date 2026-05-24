@@ -253,7 +253,7 @@ function renderRoom(room) {
   const story = room.stories.find(s => s.id === room.currentStoryId);
   if (story) {
     const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votaci\u00F3n';
-    storyInfo.innerHTML = `<strong>${story.title}</strong> \u2014 Estado: ${estado}`;
+    storyInfo.innerHTML = `<strong>${story.title}</strong>  Estado: ${estado}`;
   } else {
     storyInfo.textContent = 'No hay historia activa.';
   }
@@ -297,7 +297,7 @@ function renderRoom(room) {
     if (minValue !== null && maxValue !== null && minValue !== maxValue) {
       const minUsers = numericVotes.filter(v => v.value === minValue).map(v => v.userName).join(', ');
       const maxUsers = numericVotes.filter(v => v.value === maxValue).map(v => v.userName).join(', ');
-      diffInfo.innerHTML = `M\u00E1s bajo: <strong>${minValue} (${minUsers})</strong> | M\u00E1s alto: <strong>${maxValue} (${maxUsers})</strong> | Diferencia: ${diff}`;
+      diffInfo.innerHTML = `Mas bajo: <strong>${minValue} (${minUsers})</strong> | Mas alto: <strong>${maxValue} (${maxUsers})</strong> | Diferencia: ${diff}`;
       if (diff > threshold) {
         diffInfo.classList.add('high-diff');
       }
