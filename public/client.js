@@ -20,12 +20,15 @@ const moderatorControls = document.getElementById('moderatorControls');
 const newStoryInput = document.getElementById('newStoryInput');
 const addStoryBtn = document.getElementById('addStoryBtn');
 const thresholdInput = document.getElementById('thresholdInput');
+const sessionTimer = document.getElementById('sessionTimer');
 
 const socket = io();
 let currentRoom = null;
-let myRole = 'player';   // se actualizará al recibir room-update
+let myRole = 'player';
 let myName = '';
 let selectedCardValue = null;
+let sessionStartTime = null;
+let timerInterval = null;
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
 
@@ -59,38 +62,61 @@ socket.on('room-update', (room) => {
 });
 
 socket.on('kicked', () => {
+  stopTimer();
   alert('Has sido expulsado de la sala por el moderador.');
   roomScreen.classList.remove('active');
   loginScreen.classList.add('active');
   location.reload();
 });
 
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function startTimer() {
+  sessionStartTime = Date.now();
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (sessionStartTime) {
+      const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+      sessionTimer.textContent = formatTime(elapsed);
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  sessionStartTime = null;
+  sessionTimer.textContent = '00:00';
+}
+
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
   moderatorBadge.style.display = (room.moderatorId === socket.id) ? 'inline-block' : 'none';
 
-  // Actualizar mi rol según el servidor
   const me = room.users.find(u => u.id === socket.id);
   if (me) {
     myRole = me.role;
-    // Actualizar texto del botón de cambio de rol
     toggleRoleBtn.textContent = myRole === 'player' ? 'Cambiar a Espectador' : 'Cambiar a Jugador';
   }
 
-  // Lista de usuarios
   userList.innerHTML = '';
   room.users.forEach(user => {
     const li = document.createElement('li');
     li.className = 'user-item';
 
-    // Color según rol y estado de votación
     if (user.role === 'spectator') {
-      li.style.backgroundColor = '#cce5ff'; // azul bajito
+      li.style.backgroundColor = '#cce5ff';
     } else if (room.status === 'voting' || room.status === 'revealed') {
-      li.style.backgroundColor = user.hasVoted ? '#d4edda' : '#f8d7da'; // verde / rojo
+      li.style.backgroundColor = user.hasVoted ? '#d4edda' : '#f8d7da';
     } else {
-      li.style.backgroundColor = ''; // idle
+      li.style.backgroundColor = '';
     }
 
     const nameSpan = document.createElement('span');
@@ -117,7 +143,6 @@ function renderRoom(room) {
   });
   userCount.textContent = room.users.length;
 
-  // Historia actual
   const story = room.stories.find(s => s.id === room.currentStoryId);
   if (story) {
     storyInfo.innerHTML = `<strong>${story.title}</strong> — Estado: ${room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votación'}`;
@@ -125,10 +150,8 @@ function renderRoom(room) {
     storyInfo.textContent = 'No hay historia activa.';
   }
 
-  // Panel de votación (solo jugadores en estado voting)
   if (myRole === 'player' && room.status === 'voting') {
     votingPanel.style.display = 'block';
-    // Mantener selección si ya votó
     if (story && selectedCardValue != null) {
       const existingVote = story.votes.find(v => v.userId === socket.id);
       if (existingVote && existingVote.value != null) {
@@ -147,7 +170,6 @@ function renderRoom(room) {
     if (room.status !== 'voting') selectedCardValue = null;
   }
 
-  // Resultados y botón de limpiar
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
     resultsGrid.innerHTML = '';
@@ -208,7 +230,6 @@ function renderRoom(room) {
     clearVotesBtn.style.display = 'none';
   }
 
-  // Controles de moderador
   if (room.moderatorId === socket.id) {
     moderatorControls.style.display = 'block';
   } else {
@@ -216,7 +237,6 @@ function renderRoom(room) {
   }
 }
 
-// Eventos
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -226,6 +246,7 @@ joinBtn.addEventListener('click', () => {
   socket.emit('join-room', { roomId, userName, role: myRole });
   loginScreen.classList.remove('active');
   roomScreen.classList.add('active');
+  startTimer(); // Iniciar el temporizador al entrar a la sala
 });
 
 addStoryBtn.addEventListener('click', () => {
@@ -239,11 +260,15 @@ clearVotesBtn.addEventListener('click', () => {
   socket.emit('clear-votes', { roomId: currentRoom.id });
 });
 
-// Cambiar rol
 toggleRoleBtn.addEventListener('click', () => {
   const newRole = myRole === 'player' ? 'spectator' : 'player';
   socket.emit('change-role', { roomId: currentRoom.id, newRole });
-  // El servidor actualizará el estado y nos enviará room-update
+});
+
+// Limpiar temporizador al cerrar/recargar la página
+window.addEventListener('beforeunload', () => {
+  stopTimer();
+  socket.disconnect();
 });
 
 buildCards();

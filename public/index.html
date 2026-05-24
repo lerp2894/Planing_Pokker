@@ -10,7 +10,7 @@
   <!-- Pantalla de inicio -->
   <div id="login-screen" class="screen active">
     <div class="card login-card">
-      <h1>🃏 Planning Poker</h1>
+      <h1>🃏 Planning Poker by LuisRP</h1>
       <div class="form-group">
         <label for="userName">Tu nombre</label>
         <input type="text" id="userName" placeholder="Ej: Carlos">
@@ -34,6 +34,10 @@
   <div id="room-screen" class="screen">
     <header>
       <h2>Sala: <span id="roomTitle"></span></h2>
+      <div id="timerContainer">
+        <span>⏱️</span>
+        <span id="sessionTimer">00:00</span>
+      </div>
       <span id="moderatorBadge" class="badge" style="display:none;">👑 Moderador</span>
     </header>
 
@@ -49,28 +53,23 @@
           <div id="storyInfo">No hay historia activa.</div>
         </div>
 
-        <!-- Panel de votación (solo jugadores en estado voting) -->
         <div id="votingPanel" style="display:none;">
           <h4>Elige una carta</h4>
           <div id="cardsContainer" class="cards"></div>
         </div>
 
-        <!-- Resultados -->
         <div id="resultsPanel" style="display:none;">
           <h4>Resultados</h4>
           <div id="resultsGrid" class="votes-grid"></div>
           <p>Promedio: <strong id="averageResult">-</strong></p>
         </div>
 
-        <!-- Botón para cambiar de rol (visible para todos) -->
         <div id="roleSwitch">
           <button id="toggleRoleBtn" class="btn-secondary">Cambiar a Espectador</button>
         </div>
 
-        <!-- Botón para limpiar votos (visible para todos cuando hay resultados) -->
         <button id="clearVotesBtn" class="btn-danger" style="display:none;">Limpiar votos (repetir estimación)</button>
 
-        <!-- Controles de moderador (solo para el moderador) -->
         <div id="moderatorControls" style="display:none;">
           <h4>Moderador</h4>
           <input type="text" id="newStoryInput" placeholder="Título de la historia">
