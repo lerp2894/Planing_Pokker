@@ -39,7 +39,7 @@ let sidebarVisible = true;
 // Fibonacci
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
 
-// ----- Persistencia de sesi車n -----
+// ----- Persistencia de sesi\u00F3n -----
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
 }
@@ -66,7 +66,7 @@ function tryAutoJoin() {
   }
 }
 
-// ----- Bot車n Salir de la sala -----
+// ----- Bot\u00F3n Salir de la sala -----
 leaveRoomBtn.addEventListener('click', () => {
   clearSavedSession();
   stopTimer();
@@ -106,7 +106,7 @@ function handleSidebarResponsive() {
 window.addEventListener('resize', handleSidebarResponsive);
 handleSidebarResponsive();
 
-// ----- Construcci車n de cartas -----
+// ----- Construcci\u00F3n de cartas -----
 function buildCards() {
   cardsContainer.innerHTML = '';
   FIBONACCI.forEach(value => {
@@ -149,7 +149,6 @@ socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
     if (cleaner) {
-      // Usamos la escoba con escape Unicode
       showToast(`\u{1F9F9} Votos limpiados por ${cleaner.name}`);
     }
   }
@@ -193,7 +192,7 @@ function stopTimer() {
   sessionTimer.textContent = '00:00';
 }
 
-// ----- Renderizado de la sala -----
+// ----- Renderizado de la sala (con todos los acentos escapados) -----
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
@@ -210,7 +209,6 @@ function renderRoom(room) {
     const li = document.createElement('li');
     li.className = 'user-item';
 
-    // Colores seg迆n rol y estado
     if (user.role === 'spectator') {
       li.style.backgroundColor = '#cce5ff';
     } else if (room.status === 'voting' || room.status === 'revealed') {
@@ -221,27 +219,24 @@ function renderRoom(room) {
 
     const nameSpan = document.createElement('span');
     const roleLabel = user.role === 'player' ? 'Jugador' : 'Espectador';
-    // Corona (U+1F451) en formato seguro
     const corona = user.id === room.moderatorId ? ' \u{1F451}' : '';
     nameSpan.textContent = `${user.name}${corona} (${roleLabel})`;
 
-    // 赤cono de escoba si limpi車 los votos (U+1F9F9)
     if (room.lastClearBy === user.id) {
       const clearIcon = document.createElement('span');
       clearIcon.className = 'clear-icon';
-      clearIcon.textContent = '\u{1F9F9}'; // ??
-      clearIcon.title = 'Limpi車 los votos';
+      clearIcon.textContent = '\u{1F9F9}';
+      clearIcon.title = 'Limpi\u00F3 los votos';
       nameSpan.appendChild(clearIcon);
     }
 
-    // Bot車n expulsar (X)
     if (room.moderatorId === socket.id && user.id !== socket.id) {
       const kickBtn = document.createElement('button');
       kickBtn.textContent = 'X';
       kickBtn.className = 'kick-btn';
       kickBtn.title = 'Expulsar jugador';
       kickBtn.addEventListener('click', () => {
-        if (confirm(`?Expulsar a ${user.name}?`)) {
+        if (confirm(`\u00BFExpulsar a ${user.name}?`)) {
           socket.emit('kick-user', { roomId: room.id, targetUserId: user.id });
         }
       });
@@ -255,15 +250,14 @@ function renderRoom(room) {
   });
   userCount.textContent = room.users.length;
 
-  // Historia actual
   const story = room.stories.find(s => s.id === room.currentStoryId);
   if (story) {
-    storyInfo.innerHTML = `<strong>${story.title}</strong> 〞 Estado: ${room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votaci車n'}`;
+    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votaci\u00F3n';
+    storyInfo.innerHTML = `<strong>${story.title}</strong> \u2014 Estado: ${estado}`;
   } else {
     storyInfo.textContent = 'No hay historia activa.';
   }
 
-  // Panel de votaci車n
   if (myRole === 'player' && room.status === 'voting') {
     votingPanel.style.display = 'block';
     if (story && selectedCardValue != null) {
@@ -284,7 +278,6 @@ function renderRoom(room) {
     if (room.status !== 'voting') selectedCardValue = null;
   }
 
-  // Resultados
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
     resultsGrid.innerHTML = '';
@@ -304,14 +297,14 @@ function renderRoom(room) {
     if (minValue !== null && maxValue !== null && minValue !== maxValue) {
       const minUsers = numericVotes.filter(v => v.value === minValue).map(v => v.userName).join(', ');
       const maxUsers = numericVotes.filter(v => v.value === maxValue).map(v => v.userName).join(', ');
-      diffInfo.innerHTML = `M芍s bajo: <strong>${minValue} (${minUsers})</strong> | M芍s alto: <strong>${maxValue} (${maxUsers})</strong> | Diferencia: ${diff}`;
+      diffInfo.innerHTML = `M\u00E1s bajo: <strong>${minValue} (${minUsers})</strong> | M\u00E1s alto: <strong>${maxValue} (${maxUsers})</strong> | Diferencia: ${diff}`;
       if (diff > threshold) {
         diffInfo.classList.add('high-diff');
       }
     } else if (minValue !== null && minValue === maxValue) {
       diffInfo.textContent = 'Todos los votos coinciden.';
     } else {
-      diffInfo.textContent = 'No hay votos num谷ricos.';
+      diffInfo.textContent = 'No hay votos num\u00E9ricos.';
     }
 
     story.votes.forEach(v => {
@@ -393,6 +386,6 @@ window.addEventListener('beforeunload', () => {
   socket.disconnect();
 });
 
-// Iniciar comprobaci車n de sesi車n
+// Iniciar comprobaci\u00F3n de sesi\u00F3n
 buildCards();
 tryAutoJoin();
