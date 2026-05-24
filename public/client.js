@@ -22,6 +22,8 @@ const addStoryBtn = document.getElementById('addStoryBtn');
 const thresholdInput = document.getElementById('thresholdInput');
 const sessionTimer = document.getElementById('sessionTimer');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+const sidebar = document.getElementById('sidebar');
 const toast = document.getElementById('toast');
 
 const socket = io();
@@ -32,10 +34,12 @@ let selectedCardValue = null;
 let sessionStartTime = null;
 let timerInterval = null;
 let lastClearBy = null;
+let sidebarVisible = true;
 
+// Fibonacci
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
 
-// --- Persistencia de sesi車n ---
+// ----- Persistencia de sesi車n -----
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
 }
@@ -49,40 +53,60 @@ function clearSavedSession() {
   sessionStorage.removeItem('pokerSession');
 }
 
-// --- Inicializaci車n: si hay sesi車n guardada, entrar autom芍ticamente ---
 function tryAutoJoin() {
   const session = getSavedSession();
   if (session) {
-    // Ya tenemos datos de sesi車n, unirnos directamente
     loginScreen.classList.remove('active');
     roomScreen.classList.add('active');
     startTimer();
     socket.emit('join-room', { roomId: session.roomId, userName: session.userName, role: session.role });
-    // No sobreescribir myRole aqu赤, se actualizar芍 con room-update
   } else {
     loginScreen.classList.add('active');
     roomScreen.classList.remove('active');
   }
 }
 
-// --- Bot車n Salir de la sala ---
+// ----- Bot車n Salir de la sala -----
 leaveRoomBtn.addEventListener('click', () => {
   clearSavedSession();
   stopTimer();
-  // Desconectar socket
   socket.disconnect();
-  // Volver a la pantalla de inicio (la reconexi車n generar赤a un nuevo socket)
   roomScreen.classList.remove('active');
   loginScreen.classList.add('active');
-  // Limpiar campos (opcional)
   userNameInput.value = '';
   roomIdInput.value = '';
   roleSelect.value = 'player';
-  // Recargar la p芍gina para un estado limpio (o simplemente resetear UI)
   location.reload();
 });
 
-// --- Funciones de construcci車n y votaci車n ---
+// ----- Toggle sidebar (responsive) -----
+toggleSidebarBtn.addEventListener('click', () => {
+  sidebarVisible = !sidebarVisible;
+  if (sidebarVisible) {
+    sidebar.style.display = 'block';
+  } else {
+    sidebar.style.display = 'none';
+  }
+});
+
+function handleSidebarResponsive() {
+  if (window.innerWidth <= 768) {
+    toggleSidebarBtn.style.display = 'inline-block';
+    if (sidebarVisible) {
+      sidebar.style.display = 'block';
+    } else {
+      sidebar.style.display = 'none';
+    }
+  } else {
+    toggleSidebarBtn.style.display = 'none';
+    sidebar.style.display = 'block';
+  }
+}
+
+window.addEventListener('resize', handleSidebarResponsive);
+handleSidebarResponsive();
+
+// ----- Construcci車n de cartas -----
 function buildCards() {
   cardsContainer.innerHTML = '';
   FIBONACCI.forEach(value => {
@@ -108,7 +132,7 @@ function selectCard(value, cardElement) {
   }
 }
 
-// --- Toast ---
+// ----- Toast -----
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -120,12 +144,13 @@ function showToast(message) {
   }, 4000);
 }
 
-// --- Eventos del socket ---
+// ----- Eventos Socket.io -----
 socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
     if (cleaner) {
-      showToast(`?? Votos limpiados por ${cleaner.name}`);
+      // Usamos la escoba con escape Unicode
+      showToast(`\u{1F9F9} Votos limpiados por ${cleaner.name}`);
     }
   }
   lastClearBy = room.lastClearBy;
@@ -141,7 +166,7 @@ socket.on('kicked', () => {
   location.reload();
 });
 
-// --- Temporizador de sesi車n ---
+// ----- Temporizador -----
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -168,7 +193,7 @@ function stopTimer() {
   sessionTimer.textContent = '00:00';
 }
 
-// --- Renderizado de la sala (sin cambios importantes) ---
+// ----- Renderizado de la sala -----
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
@@ -185,6 +210,7 @@ function renderRoom(room) {
     const li = document.createElement('li');
     li.className = 'user-item';
 
+    // Colores seg迆n rol y estado
     if (user.role === 'spectator') {
       li.style.backgroundColor = '#cce5ff';
     } else if (room.status === 'voting' || room.status === 'revealed') {
@@ -195,16 +221,20 @@ function renderRoom(room) {
 
     const nameSpan = document.createElement('span');
     const roleLabel = user.role === 'player' ? 'Jugador' : 'Espectador';
-    nameSpan.textContent = user.name + (user.id === room.moderatorId ? ' ??' : '') + ` (${roleLabel})`;
+    // Corona (U+1F451) en formato seguro
+    const corona = user.id === room.moderatorId ? ' \u{1F451}' : '';
+    nameSpan.textContent = `${user.name}${corona} (${roleLabel})`;
 
+    // 赤cono de escoba si limpi車 los votos (U+1F9F9)
     if (room.lastClearBy === user.id) {
       const clearIcon = document.createElement('span');
       clearIcon.className = 'clear-icon';
-      clearIcon.textContent = '??';
+      clearIcon.textContent = '\u{1F9F9}'; // ??
       clearIcon.title = 'Limpi車 los votos';
       nameSpan.appendChild(clearIcon);
     }
 
+    // Bot車n expulsar (X)
     if (room.moderatorId === socket.id && user.id !== socket.id) {
       const kickBtn = document.createElement('button');
       kickBtn.textContent = 'X';
@@ -225,6 +255,7 @@ function renderRoom(room) {
   });
   userCount.textContent = room.users.length;
 
+  // Historia actual
   const story = room.stories.find(s => s.id === room.currentStoryId);
   if (story) {
     storyInfo.innerHTML = `<strong>${story.title}</strong> 〞 Estado: ${room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votaci車n'}`;
@@ -232,6 +263,7 @@ function renderRoom(room) {
     storyInfo.textContent = 'No hay historia activa.';
   }
 
+  // Panel de votaci車n
   if (myRole === 'player' && room.status === 'voting') {
     votingPanel.style.display = 'block';
     if (story && selectedCardValue != null) {
@@ -252,6 +284,7 @@ function renderRoom(room) {
     if (room.status !== 'voting') selectedCardValue = null;
   }
 
+  // Resultados
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
     resultsGrid.innerHTML = '';
@@ -263,7 +296,7 @@ function renderRoom(room) {
       maxValue = Math.max(...numericVotes.map(v => v.value));
     }
 
-    const threshold = parseInt(thresholdInput?.value || 0, 10);
+    const threshold = parseInt(thresholdInput?.value || 2, 10);
     const diff = (minValue !== null && maxValue !== null) ? maxValue - minValue : 0;
 
     const diffInfo = document.createElement('div');
@@ -319,7 +352,7 @@ function renderRoom(room) {
   }
 }
 
-// --- Eventos de la interfaz ---
+// ----- Eventos de interfaz -----
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -327,9 +360,7 @@ joinBtn.addEventListener('click', () => {
   if (!userName || !roomId) return alert('Completa todos los campos');
   myName = userName;
 
-  // Guardar sesi車n antes de emitir
   saveSession(roomId, userName, myRole);
-
   socket.emit('join-room', { roomId, userName, role: myRole });
   loginScreen.classList.remove('active');
   roomScreen.classList.add('active');
@@ -350,7 +381,6 @@ clearVotesBtn.addEventListener('click', () => {
 toggleRoleBtn.addEventListener('click', () => {
   const newRole = myRole === 'player' ? 'spectator' : 'player';
   socket.emit('change-role', { roomId: currentRoom.id, newRole });
-  // Actualizar tambi谷n la sesi車n guardada
   const session = getSavedSession();
   if (session) {
     session.role = newRole;
@@ -363,6 +393,6 @@ window.addEventListener('beforeunload', () => {
   socket.disconnect();
 });
 
-// --- Iniciar comprobaci車n de sesi車n ---
+// Iniciar comprobaci車n de sesi車n
 buildCards();
 tryAutoJoin();
