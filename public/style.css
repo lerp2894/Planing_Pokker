@@ -29,7 +29,7 @@ body {
   box-shadow: 0 8px 30px rgba(0,0,0,0.12);
   width: 100%;
   max-width: 400px;
-  margin-top: 10vh;
+  margin: 10vh auto 0;
   text-align: center;
   animation: fadeInUp 0.5s ease;
 }
@@ -85,7 +85,8 @@ body {
 
 /* Sala */
 #room-screen {
-  max-width: 900px;
+  max-width: 1000px;
+  width: 100%;
   margin: 0 auto;
   padding: 1rem;
   animation: fadeIn 0.4s ease;
@@ -96,7 +97,21 @@ header {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  gap: 1rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+#roomTitleHeader {
+  font-size: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
@@ -106,6 +121,7 @@ header {
   border-radius: 20px;
   font-weight: bold;
   animation: pulse 1.5s infinite;
+  font-size: 0.9rem;
 }
 
 #timerContainer {
@@ -115,15 +131,47 @@ header {
   background: #e9ecef;
   padding: 0.3rem 0.8rem;
   border-radius: 20px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #495057;
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  animation: fadeIn 0.5s ease;
 }
 
 #sessionTimer {
   font-family: monospace;
+}
+
+.btn-leave {
+  background: none;
+  border: 2px solid #dc3545;
+  color: #dc3545;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.btn-leave:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-toggle-sidebar {
+  background: none;
+  border: 2px solid #6c757d;
+  color: #6c757d;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-toggle-sidebar:hover {
+  background: #6c757d;
+  color: white;
 }
 
 .main-layout {
@@ -137,6 +185,11 @@ header {
   padding: 1rem;
   flex: 0 0 220px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.sidebar h3 {
+  font-size: 1rem;
 }
 
 .sidebar ul {
@@ -153,6 +206,7 @@ header {
   border-radius: 4px;
   margin-bottom: 2px;
   transition: background-color 0.3s ease;
+  font-size: 0.9rem;
 }
 
 .user-item span {
@@ -196,6 +250,7 @@ header {
   transition: opacity 0.3s ease, transform 0.3s ease;
   transform: translateY(20px);
   opacity: 0;
+  max-width: 90vw;
 }
 
 .toast.show {
@@ -214,6 +269,7 @@ header {
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   animation: fadeInUp 0.5s ease;
+  min-width: 0; /* permite que el contenido encoja */
 }
 
 /* Tarjetas */
@@ -222,6 +278,7 @@ header {
   flex-wrap: wrap;
   gap: 10px;
   margin: 1rem 0;
+  justify-content: center;
 }
 
 .card-vote {
@@ -258,6 +315,7 @@ header {
   flex-wrap: wrap;
   gap: 10px;
   margin: 1rem 0;
+  justify-content: center;
 }
 
 .vote-card {
@@ -287,6 +345,7 @@ header {
   background: #f8f9fa;
   border-radius: 6px;
   animation: fadeIn 0.5s ease;
+  font-size: 0.9rem;
 }
 
 .high-diff {
@@ -362,10 +421,14 @@ header {
 
 .threshold-control {
   margin: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .threshold-control label {
-  margin-right: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .threshold-control input {
@@ -394,4 +457,89 @@ header {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1.05); }
+}
+
+/* =================== RESPONSIVE =================== */
+
+/* Tablets y pantallas medianas */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    flex: none;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  #roomTitleHeader {
+    font-size: 1.2rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  header {
+    justify-content: center;
+  }
+
+  .header-controls {
+    justify-content: center;
+  }
+
+  #moderatorControls input {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .btn-toggle-sidebar {
+    display: inline-block; /* visible en móviles */
+  }
+}
+
+/* Móviles pequeños */
+@media (max-width: 480px) {
+  .login-card {
+    margin: 2rem 1rem;
+    padding: 1.5rem;
+  }
+
+  .card-vote {
+    width: 55px;
+    height: 80px;
+    font-size: 1.2rem;
+  }
+
+  .vote-card {
+    min-width: 70px;
+    padding: 0.5rem;
+  }
+
+  .vote-card .value {
+    font-size: 1.2rem;
+  }
+
+  .sidebar {
+    max-height: 180px;
+  }
+
+  .toast {
+    right: 10px;
+    left: 10px;
+    text-align: center;
+    bottom: 20px;
+  }
+
+  #room-screen {
+    padding: 0.5rem;
+  }
+}
+
+/* Ocultar botón de sidebar en escritorio (ya se muestra completo) */
+@media (min-width: 769px) {
+  .btn-toggle-sidebar {
+    display: none;
+  }
 }

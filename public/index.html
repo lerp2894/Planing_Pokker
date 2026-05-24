@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Planning Poker by LuisRP</title>
+  <title>Planning Poker By LuisRP</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,16 +33,20 @@
   <!-- Pantalla de la sala -->
   <div id="room-screen" class="screen">
     <header>
-      <h2>Sala: <span id="roomTitle"></span></h2>
-      <div id="timerContainer">
-        <span>⏱️</span>
-        <span id="sessionTimer">00:00</span>
+      <h2 id="roomTitleHeader">Sala: <span id="roomTitle"></span></h2>
+      <div class="header-controls">
+        <div id="timerContainer">
+          <span>⏱️</span>
+          <span id="sessionTimer">00:00</span>
+        </div>
+        <span id="moderatorBadge" class="badge" style="display:none;">👑</span>
+        <button id="leaveRoomBtn" class="btn-leave" title="Salir de la sala">🚪</button>
+        <button id="toggleSidebarBtn" class="btn-toggle-sidebar" title="Mostrar/ocultar usuarios">👥</button>
       </div>
-      <span id="moderatorBadge" class="badge" style="display:none;">👑 Moderador</span>
     </header>
 
     <div class="main-layout">
-      <aside class="sidebar">
+      <aside id="sidebar" class="sidebar">
         <h3>Usuarios (<span id="userCount">0</span>)</h3>
         <ul id="userList"></ul>
       </aside>
@@ -76,7 +80,7 @@
           <button id="addStoryBtn" class="btn-secondary">Agregar historia</button>
           <div class="threshold-control">
             <label for="thresholdInput">Diferencia para resaltar (umbral):</label>
-            <input type="number" id="thresholdInput" value="5" min="0" step="1">
+            <input type="number" id="thresholdInput" value="2" min="0" step="1">
           </div>
         </div>
       </section>
