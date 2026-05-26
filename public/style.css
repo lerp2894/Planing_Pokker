@@ -462,3 +462,104 @@ header {
   right: -5px;
   transform: rotate(15deg);
 }
+
+/* =================== RESPONSIVE / MOBILE ADAPTATION =================== */
+
+/* Para pantallas medianas y móviles (Tablets y Smartphones) */
+@media (max-width: 768px) {
+  body {
+    overflow-y: auto; /* Permitir scroll general en móviles si el contenido es alto */
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* El layout principal pasa de fila (flex) a columna vertical */
+  .main-layout {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    padding: 10px;
+    gap: 16px;
+  }
+
+  /* Los paneles laterales ahora ocupan el 100% del ancho del móvil */
+  .sidebar {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+
+  .left-panel { border-right: 1px solid #e2e8f0; order: 2; } /* Abajo de la mesa */
+  .right-panel { border-left: 1px solid #e2e8f0; order: 3; } /* Al fondo */
+
+  /* Área central donde está la mesa redonda */
+  .table-area {
+    width: 100%;
+    height: auto;
+    min-height: 340px;
+    padding: 20px 0;
+    order: 1; /* La mesa se muestra primero arriba en el móvil */
+    background: transparent;
+  }
+
+  /* Escalamos el tamaño del mapa de la mesa para que no desborde en pantallas de 320px - 400px */
+  .table-wrapper {
+    width: 320px;
+    height: 320px;
+  }
+
+  .poker-table {
+    width: 110px;
+    height: 110px;
+  }
+
+  .table-average-number {
+    font-size: 2rem;
+  }
+
+  /* Ajustamos el radio de distribución de los jugadores en móvil dentro de renderRoom */
+  /* Nota: La lógica del radio se recalcula automáticamente si aplicas el cambio del JS abajo */
+  
+  /* El mazo inferior flotante se vuelve estático al final de la pantalla */
+  .deck-area {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    height: auto;
+    padding: 12px;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.08);
+    z-index: 999;
+    order: 4;
+  }
+
+  .cards-deck {
+    flex-wrap: wrap; /* Si las cartas no caben en una línea, bajan organizadamente */
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .card-vote {
+    width: 46px;
+    height: 68px;
+    font-size: 1.1rem;
+  }
+}
+
+/* Ajustes finos para teléfonos muy pequeños (iPhone SE / pantallas < 360px) */
+@media (max-width: 360px) {
+  .table-wrapper {
+    width: 280px;
+    height: 280px;
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+  .player-name {
+    width: 80px;
+  }
+}

@@ -180,17 +180,22 @@ function renderRoom(room) {
   const centerX = 200; 
   const centerY = 200;
   
+  // DETECCIÓN ADAPTATIVA: Cambia el radio si se visualiza desde un móvil
+  const isMobile = window.innerWidth <= 768;
+  const baseRadius = isMobile ? 100 : 135;
+  
   room.users.forEach((user, index) => {
     const slotDiv = document.createElement('div');
     slotDiv.className = 'player-slot';
 
-    const baseRadius = 135;
-    const finalRadius = user.role === 'spectator' ? baseRadius + 45 : baseRadius;
+    const finalRadius = user.role === 'spectator' ? baseRadius + 35 : baseRadius;
 
     const angle = (index / totalUsers) * 2 * Math.PI - Math.PI / 2;
     const x = centerX + finalRadius * Math.cos(angle);
     const y = centerY + finalRadius * Math.sin(angle);
-    slotDiv.style.left = `${x}px`;
+    
+    // Ajuste de centrado de los slots en móviles para evitar desfases visuales
+    slotDiv.style.left = isMobile ? `${x - 15}px` : `${x}px`;
     slotDiv.style.top = `${y}px`;
 
     const avatarCircle = document.createElement('div');
@@ -344,7 +349,6 @@ function renderRoom(room) {
   moderatorControls.style.display = (room.moderatorId === socket.id) ? 'block' : 'none';
 }
 
-// CORRECCIÓN CLAVE EN EL LOGIN (Aquí se reparó la lectura de variables)
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -380,6 +384,13 @@ toggleRoleBtn.addEventListener('click', () => {
   if (session) {
     session.role = newRole;
     sessionStorage.setItem('pokerSession', JSON.stringify(session));
+  }
+});
+
+// Listener adicional para reajustar los radios de la mesa de forma fluida si el usuario gira el móvil
+window.addEventListener('resize', () => {
+  if (currentRoom) {
+    renderRoom(currentRoom);
   }
 });
 
