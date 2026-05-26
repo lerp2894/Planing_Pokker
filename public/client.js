@@ -7,12 +7,11 @@ const roleSelect = document.getElementById('role');
 const roomTitle = document.getElementById('roomTitle');
 const moderatorBadge = document.getElementById('moderatorBadge');
 const userList = document.getElementById('userList');
-const userCount = document.getElementById('userCount');
 const storyInfo = document.getElementById('storyInfo');
 const votingPanel = document.getElementById('votingPanel');
 const cardsContainer = document.getElementById('cardsContainer');
 const resultsPanel = document.getElementById('resultsPanel');
-const resultsGrid = document.getElementById('resultsGrid');
+const summaryAnalytics = document.getElementById('summaryAnalytics');
 const averageResult = document.getElementById('averageResult');
 const clearVotesBtn = document.getElementById('clearVotesBtn');
 const toggleRoleBtn = document.getElementById('toggleRoleBtn');
@@ -22,9 +21,11 @@ const addStoryBtn = document.getElementById('addStoryBtn');
 const thresholdInput = document.getElementById('thresholdInput');
 const sessionTimer = document.getElementById('sessionTimer');
 const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
-const sidebar = document.getElementById('sidebar');
 const toast = document.getElementById('toast');
+
+const pokerTable = document.getElementById('pokerTable');
+const tableStatusLabel = document.getElementById('tableStatusLabel');
+const tableAverageDisplay = document.getElementById('tableAverageDisplay');
 
 const socket = io();
 let currentRoom = null;
@@ -34,12 +35,9 @@ let selectedCardValue = null;
 let sessionStartTime = null;
 let timerInterval = null;
 let lastClearBy = null;
-let sidebarVisible = true;
 
-// Fibonacci
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
 
-// ----- Persistencia de sesi\u00F3n -----
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
 }
@@ -66,47 +64,13 @@ function tryAutoJoin() {
   }
 }
 
-// ----- Bot\u00F3n Salir de la sala -----
 leaveRoomBtn.addEventListener('click', () => {
   clearSavedSession();
   stopTimer();
   socket.disconnect();
-  roomScreen.classList.remove('active');
-  loginScreen.classList.add('active');
-  userNameInput.value = '';
-  roomIdInput.value = '';
-  roleSelect.value = 'player';
   location.reload();
 });
 
-// ----- Toggle sidebar (responsive) -----
-toggleSidebarBtn.addEventListener('click', () => {
-  sidebarVisible = !sidebarVisible;
-  if (sidebarVisible) {
-    sidebar.style.display = 'block';
-  } else {
-    sidebar.style.display = 'none';
-  }
-});
-
-function handleSidebarResponsive() {
-  if (window.innerWidth <= 768) {
-    toggleSidebarBtn.style.display = 'inline-block';
-    if (sidebarVisible) {
-      sidebar.style.display = 'block';
-    } else {
-      sidebar.style.display = 'none';
-    }
-  } else {
-    toggleSidebarBtn.style.display = 'none';
-    sidebar.style.display = 'block';
-  }
-}
-
-window.addEventListener('resize', handleSidebarResponsive);
-handleSidebarResponsive();
-
-// ----- Construcci\u00F3n de cartas -----
 function buildCards() {
   cardsContainer.innerHTML = '';
   FIBONACCI.forEach(value => {
@@ -132,7 +96,6 @@ function selectCard(value, cardElement) {
   }
 }
 
-// ----- Toast -----
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -144,7 +107,6 @@ function showToast(message) {
   }, 4000);
 }
 
-// ----- Eventos Socket.io -----
 socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
@@ -159,13 +121,10 @@ socket.on('room-update', (room) => {
 socket.on('kicked', () => {
   clearSavedSession();
   stopTimer();
-  alert('Has sido expulsado de la sala por el moderador.');
-  roomScreen.classList.remove('active');
-  loginScreen.classList.add('active');
+  alert('Has sido expulsado de la sala.');
   location.reload();
 });
 
-// ----- Temporizador -----
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -188,15 +147,15 @@ function stopTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
-  sessionStartTime = null;
-  sessionTimer.textContent = '00:00';
 }
 
-// ----- Renderizado de la sala (con todos los acentos escapados) -----
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
+  
+  // Corona del header usando escape Unicode seguro
   moderatorBadge.style.display = (room.moderatorId === socket.id) ? 'inline-block' : 'none';
+  moderatorBadge.textContent = '\u{1F451}';
 
   const me = room.users.find(u => u.id === socket.id);
   if (me) {
@@ -204,154 +163,197 @@ function renderRoom(room) {
     toggleRoleBtn.textContent = myRole === 'player' ? 'Cambiar a Espectador' : 'Cambiar a Jugador';
   }
 
+  const story = room.stories.find(s => s.id === room.currentStoryId);
+  const numericVotes = story ? story.votes.filter(v => v.value !== -1 && v.value != null) : [];
+  
+  let minValue = null, maxValue = null, diff = 0;
+  const threshold = parseInt(thresholdInput?.value || 2, 10);
+
+  if (numericVotes.length > 0) {
+    minValue = Math.min(...numericVotes.map(v => v.value));
+    maxValue = Math.max(...numericVotes.map(v => v.value));
+    diff = maxValue - minValue;
+  }
+
   userList.innerHTML = '';
-  room.users.forEach(user => {
-    const li = document.createElement('li');
-    li.className = 'user-item';
+  const totalUsers = room.users.length;
+  const centerX = 200; 
+  const centerY = 200;
+  
+  room.users.forEach((user, index) => {
+    const slotDiv = document.createElement('div');
+    slotDiv.className = 'player-slot';
 
+    const baseRadius = 135;
+    const finalRadius = user.role === 'spectator' ? baseRadius + 45 : baseRadius;
+
+    const angle = (index / totalUsers) * 2 * Math.PI - Math.PI / 2;
+    const x = centerX + finalRadius * Math.cos(angle);
+    const y = centerY + finalRadius * Math.sin(angle);
+    slotDiv.style.left = `${x}px`;
+    slotDiv.style.top = `${y}px`;
+
+    const avatarCircle = document.createElement('div');
+    avatarCircle.className = 'avatar';
+    
     if (user.role === 'spectator') {
-      li.style.backgroundColor = '#cce5ff';
-    } else if (room.status === 'voting' || room.status === 'revealed') {
-      li.style.backgroundColor = user.hasVoted ? '#d4edda' : '#f8d7da';
+      avatarCircle.classList.add('spectator-avatar');
+    } else if (user.id === room.moderatorId) {
+      avatarCircle.classList.add('admin-avatar');
     } else {
-      li.style.backgroundColor = '';
+      const colorClasses = ['avatar-1', 'avatar-2', 'avatar-3', 'avatar-4'];
+      avatarCircle.classList.add(colorClasses[index % colorClasses.length]);
     }
 
-    const nameSpan = document.createElement('span');
-    const roleLabel = user.role === 'player' ? 'Jugador' : 'Espectador';
-    const corona = user.id === room.moderatorId ? ' \u{1F451}' : '';
-    nameSpan.textContent = `${user.name}${corona} (${roleLabel})`;
+    const initialSpan = document.createElement('span');
+    initialSpan.textContent = user.name.charAt(0).toUpperCase();
+    avatarCircle.appendChild(initialSpan);
 
-    if (room.lastClearBy === user.id) {
-      const clearIcon = document.createElement('span');
-      clearIcon.className = 'clear-icon';
-      clearIcon.textContent = '\u{1F9F9}';
-      clearIcon.title = 'Limpi\u00F3 los votos';
-      nameSpan.appendChild(clearIcon);
+    // SOLUCIÓN CORONA (Evita los ?? usando el código Unicode nativo \u{1F451})
+    if (user.id === room.moderatorId) {
+      const corona = document.createElement('span');
+      corona.className = 'top-badge corona-badge';
+      corona.textContent = '\u{1F451}'; 
+      avatarCircle.appendChild(corona);
     }
+
+    // SOLUCIÓN ESCOBA (Evita los ?? usando el código Unicode nativo \u{1F9F9})
+    if (room.lastClearBy === user.id && room.status !== 'revealed') {
+      const escoba = document.createElement('span');
+      escoba.className = 'top-badge escoba-badge';
+      escoba.textContent = '\u{1F9F9}'; 
+      avatarCircle.appendChild(escoba);
+    }
+
+    if (room.status === 'revealed' && user.role === 'player') {
+      const uVote = story ? story.votes.find(v => v.userId === user.id) : null;
+      if (uVote && uVote.value != null && uVote.value !== -1 && diff > threshold) {
+        if (uVote.value === minValue || uVote.value === maxValue) {
+          avatarCircle.classList.add('alert-outlier');
+          const warningSign = document.createElement('span');
+          warningSign.className = 'warning-badge';
+          warningSign.textContent = '\u{26A0}'; // Símbolo de advertencia seguro
+          avatarCircle.appendChild(warningSign);
+        }
+      }
+    }
+
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'player-name';
+    nameLabel.textContent = user.role === 'spectator' ? 'Observador' : user.name;
+    if (user.role === 'spectator') nameLabel.classList.add('lbl-observador');
+
+    const playedCard = document.createElement('div');
+    playedCard.className = 'played-card';
+    
+    if (user.role === 'player') {
+      if (room.status === 'voting') {
+        if (user.hasVoted) {
+          playedCard.classList.add('has-voted');
+          playedCard.textContent = '\u{2713}'; // Checkmark seguro
+        } else {
+          playedCard.classList.add('waiting');
+          playedCard.textContent = '...';
+        }
+      } else if (room.status === 'revealed') {
+        playedCard.classList.add('revealed');
+        const userVote = story ? story.votes.find(v => v.userId === user.id) : null;
+        if (userVote && userVote.value != null) {
+          playedCard.textContent = userVote.value === -1 ? '?' : userVote.value;
+        } else {
+          playedCard.textContent = '-';
+        }
+      }
+    } else {
+      playedCard.classList.add('spectator-tag');
+      playedCard.textContent = '\u{1F441}'; // Ojo seguro
+    }
+
+    slotDiv.appendChild(avatarCircle);
+    slotDiv.appendChild(nameLabel);
+    slotDiv.appendChild(playedCard);
 
     if (room.moderatorId === socket.id && user.id !== socket.id) {
       const kickBtn = document.createElement('button');
       kickBtn.textContent = 'X';
       kickBtn.className = 'kick-btn';
-      kickBtn.title = 'Expulsar jugador';
-      kickBtn.addEventListener('click', () => {
-        if (confirm(`\u00BFExpulsar a ${user.name}?`)) {
+      kickBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm(`¿Expulsar a ${user.name}?`)) {
           socket.emit('kick-user', { roomId: room.id, targetUserId: user.id });
         }
       });
-      li.appendChild(nameSpan);
-      li.appendChild(kickBtn);
-    } else {
-      li.appendChild(nameSpan);
+      slotDiv.appendChild(kickBtn);
     }
 
-    userList.appendChild(li);
+    userList.appendChild(slotDiv);
   });
-  userCount.textContent = room.users.length;
 
-  const story = room.stories.find(s => s.id === room.currentStoryId);
   if (story) {
-    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votaci\u00F3n';
-    storyInfo.innerHTML = `<strong>${story.title}</strong>  Estado: ${estado}`;
+    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votacion';
+    storyInfo.innerHTML = `<strong>${story.title}</strong><br><span class="status-badge">${estado}</span>`;
   } else {
     storyInfo.textContent = 'No hay historia activa.';
   }
 
   if (myRole === 'player' && room.status === 'voting') {
-    votingPanel.style.display = 'block';
-    if (story && selectedCardValue != null) {
-      const existingVote = story.votes.find(v => v.userId === socket.id);
-      if (existingVote && existingVote.value != null) {
-        const cards = document.querySelectorAll('.card-vote');
-        cards.forEach(c => {
-          c.classList.remove('selected');
-          if (Number(c.dataset.value) === existingVote.value) {
-            c.classList.add('selected');
-            selectedCardValue = existingVote.value;
-          }
-        });
-      }
-    }
+    votingPanel.style.display = 'flex';
   } else {
     votingPanel.style.display = 'none';
-    if (room.status !== 'voting') selectedCardValue = null;
+    if (room.status !== 'voting') {
+      selectedCardValue = null;
+      document.querySelectorAll('.card-vote.selected').forEach(c => c.classList.remove('selected'));
+    }
   }
 
   if (room.status === 'revealed' && story) {
     resultsPanel.style.display = 'block';
-    resultsGrid.innerHTML = '';
-
-    const numericVotes = story.votes.filter(v => v.value !== -1 && v.value != null);
-    let minValue = null, maxValue = null;
-    if (numericVotes.length > 0) {
-      minValue = Math.min(...numericVotes.map(v => v.value));
-      maxValue = Math.max(...numericVotes.map(v => v.value));
-    }
-
-    const threshold = parseInt(thresholdInput?.value || 2, 10);
-    const diff = (minValue !== null && maxValue !== null) ? maxValue - minValue : 0;
-
-    const diffInfo = document.createElement('div');
-    diffInfo.className = 'diff-info';
-    if (minValue !== null && maxValue !== null && minValue !== maxValue) {
-      const minUsers = numericVotes.filter(v => v.value === minValue).map(v => v.userName).join(', ');
-      const maxUsers = numericVotes.filter(v => v.value === maxValue).map(v => v.userName).join(', ');
-      diffInfo.innerHTML = `Mas bajo: <strong>${minValue} (${minUsers})</strong> | Mas alto: <strong>${maxValue} (${maxUsers})</strong> | Diferencia: ${diff}`;
-      if (diff > threshold) {
-        diffInfo.classList.add('high-diff');
-      }
-    } else if (minValue !== null && minValue === maxValue) {
-      diffInfo.textContent = 'Todos los votos coinciden.';
-    } else {
-      diffInfo.textContent = 'No hay votos num\u00E9ricos.';
-    }
-
-    story.votes.forEach(v => {
-      const div = document.createElement('div');
-      div.className = 'vote-card';
-      if (v.value !== -1 && v.value != null && diff > threshold) {
-        if (v.value === minValue || v.value === maxValue) {
-          div.style.backgroundColor = '#cce5ff';
-          div.style.border = '2px solid #0066cc';
-          div.style.animation = 'selectPop 0.4s ease';
-        }
-      }
-      div.innerHTML = `<div class="name">${v.userName}</div><div class="value">${v.value === -1 ? '?' : v.value}</div>`;
-      resultsGrid.appendChild(div);
-    });
-
+    
     if (numericVotes.length > 0) {
       const avg = numericVotes.reduce((a, b) => a + b.value, 0) / numericVotes.length;
-      averageResult.textContent = avg.toFixed(1);
+      const formattedAvg = avg.toFixed(1);
+      averageResult.textContent = formattedAvg;
+      tableStatusLabel.textContent = "Consensus!";
+      tableAverageDisplay.textContent = formattedAvg;
+
+      let analyticsHTML = `
+        <div class="analytic-item">Voto mas bajo: <strong>${minValue}</strong></div>
+        <div class="analytic-item">Voto mas alto: <strong>${maxValue}</strong></div>
+        <div class="analytic-item ${diff > threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
+      `;
+
+      if (diff > threshold) {
+        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Supera el umbral establecido de ${threshold}</div>`;
+      }
+      summaryAnalytics.innerHTML = analyticsHTML;
+
     } else {
       averageResult.textContent = 'N/A';
+      tableStatusLabel.textContent = "Revelado";
+      tableAverageDisplay.textContent = '?';
+      summaryAnalytics.innerHTML = '<div>No hay votos numericos.</div>';
     }
-
-    const oldDiff = resultsPanel.querySelector('.diff-info');
-    if (oldDiff) oldDiff.remove();
-    resultsPanel.appendChild(diffInfo);
-
     clearVotesBtn.style.display = 'block';
   } else {
     resultsPanel.style.display = 'none';
     clearVotesBtn.style.display = 'none';
+    tableStatusLabel.textContent = room.status === 'voting' ? 'Votando...' : 'Esperando';
+    tableAverageDisplay.textContent = '...';
   }
 
-  if (room.moderatorId === socket.id) {
-    moderatorControls.style.display = 'block';
-  } else {
-    moderatorControls.style.display = 'none';
-  }
+  moderatorControls.style.display = (room.moderatorId === socket.id) ? 'block' : 'none';
 }
 
-// ----- Eventos de interfaz -----
+// CORRECCIÓN CLAVE EN EL LOGIN (Aquí se reparó la lectura de variables)
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
-  myRole = roleSelect.value;
+  const selectedRole = roleSelect.value;
+  
   if (!userName || !roomId) return alert('Completa todos los campos');
+  
   myName = userName;
+  myRole = selectedRole;
 
   saveSession(roomId, userName, myRole);
   socket.emit('join-room', { roomId, userName, role: myRole });
@@ -381,11 +383,5 @@ toggleRoleBtn.addEventListener('click', () => {
   }
 });
 
-window.addEventListener('beforeunload', () => {
-  stopTimer();
-  socket.disconnect();
-});
-
-// Iniciar comprobaci\u00F3n de sesi\u00F3n
 buildCards();
 tryAutoJoin();
