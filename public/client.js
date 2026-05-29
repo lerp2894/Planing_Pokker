@@ -328,7 +328,7 @@ function renderRoom(room) {
       `;
 
       if (diff >= threshold) {
-        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Supera el umbral establecido de ${threshold}</div>`;
+        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Diferencia Mayor o igual el umbral establecido de ${threshold}</div>`;
       }
       summaryAnalytics.innerHTML = analyticsHTML;
 
