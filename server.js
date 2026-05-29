@@ -47,7 +47,7 @@ io.on('connection', (socket) => {
         stories: [],
         users: [],
         lastClearBy: null,
-        threshold: 2 // Umbral inicial por defecto
+        threshold: 2
       });
     }
 
@@ -76,7 +76,6 @@ io.on('connection', (socket) => {
   socket.on('add-story', ({ roomId, title, threshold }) => {
     const room = rooms.get(roomId);
     if (room && room.moderatorId === socket.id) {
-      // Recibe y guarda el umbral enviado desde el cliente
       room.threshold = parseInt(threshold, 10) !== undefined ? parseInt(threshold, 10) : 2;
 
       const newStory = {
@@ -111,7 +110,7 @@ io.on('connection', (socket) => {
           }
 
           const players = room.users.filter(u => u.role === 'player');
-          const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
+          const allVoted = players.length > 0 && players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
@@ -126,9 +125,10 @@ io.on('connection', (socket) => {
     }
   });
 
+  // CUALQUIER USUARIO PUEDE LIMPIAR: Removida la validación estricta de moderador
   socket.on('clear-votes', ({ roomId }) => {
     const room = rooms.get(roomId);
-    if (room && room.moderatorId === socket.id) {
+    if (room) {
       const story = room.stories.find(s => s.id === room.currentStoryId);
       if (story) {
         story.votes = [];
@@ -204,7 +204,7 @@ io.on('connection', (socket) => {
         room.moderatorId = room.users[0].id;
       }
 
-      if (room && room.status === 'voting' && room.currentStoryId != null) {
+      if (room.status === 'voting' && room.currentStoryId != null) {
         const story = room.stories.find(s => s.id === room.currentStoryId);
         if (story) {
           const players = room.users.filter(u => u.role === 'player');

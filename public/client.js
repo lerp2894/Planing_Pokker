@@ -111,7 +111,7 @@ socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
     if (cleaner) {
-      showToast(`\u{1F9F9} Votos limpiados por ${cleaner.name}`);
+      showToast(`üßπ Votos limpiados por ${cleaner.name}`);
     }
   }
   lastClearBy = room.lastClearBy;
@@ -154,7 +154,7 @@ function renderRoom(room) {
   roomTitle.textContent = room.id;
   
   moderatorBadge.style.display = (room.moderatorId === socket.id) ? 'inline-block' : 'none';
-  moderatorBadge.textContent = '\u{1F451}';
+  moderatorBadge.textContent = 'üëë';
 
   const me = room.users.find(u => u.id === socket.id);
   if (me) {
@@ -167,7 +167,6 @@ function renderRoom(room) {
   
   let minValue = null, maxValue = null, diff = 0;
   
-  // Obtenemos el umbral global sincronizado desde la sala (servidor)
   const threshold = room.threshold !== undefined ? room.threshold : parseInt(thresholdInput?.value || 2, 10);
   
   if (thresholdInput) {
@@ -220,26 +219,25 @@ function renderRoom(room) {
     if (user.id === room.moderatorId) {
       const corona = document.createElement('span');
       corona.className = 'top-badge corona-badge';
-      corona.textContent = '\u{1F451}'; 
+      corona.textContent = 'üëë'; 
       avatarCircle.appendChild(corona);
     }
 
     if (room.lastClearBy === user.id && room.status !== 'revealed') {
       const escoba = document.createElement('span');
       escoba.className = 'top-badge escoba-badge';
-      escoba.textContent = '\u{1F9F9}'; 
+      escoba.textContent = 'üßπ'; 
       avatarCircle.appendChild(escoba);
     }
 
     if (room.status === 'revealed' && user.role === 'player') {
       const uVote = story ? story.votes.find(v => v.userId === user.id) : null;
-      // VALIDACI”N: Mayor o igual (>=) para resaltar valores atÌpicos
       if (uVote && uVote.value != null && uVote.value !== -1 && diff >= threshold) {
         if (uVote.value === minValue || uVote.value === maxValue) {
           avatarCircle.classList.add('alert-outlier');
           const warningSign = document.createElement('span');
           warningSign.className = 'warning-badge';
-          warningSign.textContent = '\u{26A0}'; 
+          warningSign.textContent = '‚ö†Ô∏è'; 
           avatarCircle.appendChild(warningSign);
         }
       }
@@ -257,7 +255,7 @@ function renderRoom(room) {
       if (room.status === 'voting') {
         if (user.hasVoted) {
           playedCard.classList.add('has-voted');
-          playedCard.textContent = '\u{2713}'; 
+          playedCard.textContent = '‚úì'; 
         } else {
           playedCard.classList.add('waiting');
           playedCard.textContent = '...';
@@ -273,7 +271,7 @@ function renderRoom(room) {
       }
     } else {
       playedCard.classList.add('spectator-tag');
-      playedCard.textContent = '\u{1F441}'; 
+      playedCard.textContent = 'üëÅ'; 
     }
 
     slotDiv.appendChild(avatarCircle);
@@ -286,7 +284,7 @@ function renderRoom(room) {
       kickBtn.className = 'kick-btn';
       kickBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm(`øExpulsar a ${user.name}?`)) {
+        if (confirm(`¬øExpulsar a ${user.name}?`)) {
           socket.emit('kick-user', { roomId: room.id, targetUserId: user.id });
         }
       });
@@ -297,7 +295,7 @@ function renderRoom(room) {
   });
 
   if (story) {
-    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revealeds' : 'Sin votacion';
+    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votacion';
     storyInfo.innerHTML = `<strong>${story.title}</strong><br><span class="status-badge">${estado}</span>`;
   } else {
     storyInfo.textContent = 'No hay historia activa.';
@@ -323,7 +321,6 @@ function renderRoom(room) {
       tableStatusLabel.textContent = "Consensus!";
       tableAverageDisplay.textContent = formattedAvg;
 
-      // APARTADO DE AN¡LISIS: Se aÒade la fila del umbral establecido visible para todos
       let analyticsHTML = `
         <div class="analytic-item">Umbral establecido: <strong>${threshold}</strong></div>
         <div class="analytic-item">Voto mas bajo: <strong>${minValue}</strong></div>
@@ -331,9 +328,8 @@ function renderRoom(room) {
         <div class="analytic-item ${diff >= threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
       `;
 
-      // VALIDACI”N: Mayor o igual (>=) para la caja de alerta
       if (diff >= threshold) {
-        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Supera o iguala el umbral establecido de ${threshold}</div>`;
+        analyticsHTML += `<div class="alert-box-warning">‚ö†Ô∏è Supera o iguala el umbral establecido de ${threshold}</div>`;
       }
       summaryAnalytics.innerHTML = analyticsHTML;
 
@@ -346,7 +342,10 @@ function renderRoom(room) {
         <div>No hay votos numericos.</div>
       `;
     }
+    
+    // VISIBILIDAD: Cualquier integrante de la sala ve y puede usar el bot√≥n "Repetir"
     clearVotesBtn.style.display = 'block';
+
   } else {
     resultsPanel.style.display = 'none';
     clearVotesBtn.style.display = 'none';
@@ -379,10 +378,8 @@ addStoryBtn.addEventListener('click', () => {
   const title = newStoryInput.value.trim();
   if (!title) return;
 
-  // Refrescar y capturar el valor del input al presionar el botÛn
   const threshold = parseInt(thresholdInput.value || 2, 10);
 
-  // Enviar el tÌtulo y el valor fresco del umbral al servidor
   socket.emit('add-story', { 
     roomId: currentRoom.id, 
     title,
