@@ -369,7 +369,23 @@ joinBtn.addEventListener('click', () => {
 addStoryBtn.addEventListener('click', () => {
   const title = newStoryInput.value.trim();
   if (!title) return;
-  socket.emit('add-story', { roomId: currentRoom.id, title });
+
+  // Refrescar el valor actual del umbral
+  const threshold = parseInt(thresholdInput.value || 2, 10);
+
+  // Actualizar el valor global para futuras comparaciones
+  thresholdInput.dataset.currentThreshold = threshold;
+
+  socket.emit('add-story', { 
+    roomId: currentRoom.id, 
+    title
+  });
+
+  // Re-render para recalcular inmediatamente las alertas
+  if (currentRoom) {
+    renderRoom(currentRoom);
+  }
+
   newStoryInput.value = '';
 });
 
