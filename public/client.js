@@ -153,7 +153,6 @@ function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
   
-  // Corona del header usando escape Unicode seguro
   moderatorBadge.style.display = (room.moderatorId === socket.id) ? 'inline-block' : 'none';
   moderatorBadge.textContent = '\u{1F451}';
 
@@ -167,7 +166,13 @@ function renderRoom(room) {
   const numericVotes = story ? story.votes.filter(v => v.value !== -1 && v.value != null) : [];
   
   let minValue = null, maxValue = null, diff = 0;
-  const threshold = parseInt(thresholdInput?.value || 2, 10);
+  
+  // Obtenemos el umbral global sincronizado desde la sala (servidor)
+  const threshold = room.threshold !== undefined ? room.threshold : parseInt(thresholdInput?.value || 2, 10);
+  
+  if (thresholdInput) {
+    thresholdInput.value = threshold;
+  }
 
   if (numericVotes.length > 0) {
     minValue = Math.min(...numericVotes.map(v => v.value));
@@ -180,7 +185,6 @@ function renderRoom(room) {
   const centerX = 200; 
   const centerY = 200;
   
-  // DETECCIÓN ADAPTATIVA: Cambia el radio si se visualiza desde un móvil
   const isMobile = window.innerWidth <= 768;
   const baseRadius = isMobile ? 100 : 135;
   
@@ -194,7 +198,6 @@ function renderRoom(room) {
     const x = centerX + finalRadius * Math.cos(angle);
     const y = centerY + finalRadius * Math.sin(angle);
     
-    // Ajuste de centrado de los slots en móviles para evitar desfases visuales
     slotDiv.style.left = isMobile ? `${x - 15}px` : `${x}px`;
     slotDiv.style.top = `${y}px`;
 
@@ -214,7 +217,6 @@ function renderRoom(room) {
     initialSpan.textContent = user.name.charAt(0).toUpperCase();
     avatarCircle.appendChild(initialSpan);
 
-    // SOLUCIÓN CORONA (Evita los ?? usando el código Unicode nativo \u{1F451})
     if (user.id === room.moderatorId) {
       const corona = document.createElement('span');
       corona.className = 'top-badge corona-badge';
@@ -222,7 +224,6 @@ function renderRoom(room) {
       avatarCircle.appendChild(corona);
     }
 
-    // SOLUCIÓN ESCOBA (Evita los ?? usando el código Unicode nativo \u{1F9F9})
     if (room.lastClearBy === user.id && room.status !== 'revealed') {
       const escoba = document.createElement('span');
       escoba.className = 'top-badge escoba-badge';
@@ -232,12 +233,13 @@ function renderRoom(room) {
 
     if (room.status === 'revealed' && user.role === 'player') {
       const uVote = story ? story.votes.find(v => v.userId === user.id) : null;
+      // VALIDACIÓN: Mayor o igual (>=) para resaltar valores atípicos
       if (uVote && uVote.value != null && uVote.value !== -1 && diff >= threshold) {
         if (uVote.value === minValue || uVote.value === maxValue) {
           avatarCircle.classList.add('alert-outlier');
           const warningSign = document.createElement('span');
           warningSign.className = 'warning-badge';
-          warningSign.textContent = '\u{26A0}'; // Símbolo de advertencia seguro
+          warningSign.textContent = '\u{26A0}'; 
           avatarCircle.appendChild(warningSign);
         }
       }
@@ -255,7 +257,7 @@ function renderRoom(room) {
       if (room.status === 'voting') {
         if (user.hasVoted) {
           playedCard.classList.add('has-voted');
-          playedCard.textContent = '\u{2713}'; // Checkmark seguro
+          playedCard.textContent = '\u{2713}'; 
         } else {
           playedCard.classList.add('waiting');
           playedCard.textContent = '...';
@@ -271,7 +273,7 @@ function renderRoom(room) {
       }
     } else {
       playedCard.classList.add('spectator-tag');
-      playedCard.textContent = '\u{1F441}'; // Ojo seguro
+      playedCard.textContent = '\u{1F441}'; 
     }
 
     slotDiv.appendChild(avatarCircle);
@@ -295,7 +297,7 @@ function renderRoom(room) {
   });
 
   if (story) {
-    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revelados' : 'Sin votacion';
+    const estado = room.status === 'voting' ? 'Votando...' : room.status === 'revealed' ? 'Votos revealeds' : 'Sin votacion';
     storyInfo.innerHTML = `<strong>${story.title}</strong><br><span class="status-badge">${estado}</span>`;
   } else {
     storyInfo.textContent = 'No hay historia activa.';
@@ -321,22 +323,28 @@ function renderRoom(room) {
       tableStatusLabel.textContent = "Consensus!";
       tableAverageDisplay.textContent = formattedAvg;
 
+      // APARTADO DE ANÁLISIS: Se añade la fila del umbral establecido visible para todos
       let analyticsHTML = `
+        <div class="analytic-item">Umbral establecido: <strong>${threshold}</strong></div>
         <div class="analytic-item">Voto mas bajo: <strong>${minValue}</strong></div>
         <div class="analytic-item">Voto mas alto: <strong>${maxValue}</strong></div>
         <div class="analytic-item ${diff >= threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
       `;
 
+      // VALIDACIÓN: Mayor o igual (>=) para la caja de alerta
       if (diff >= threshold) {
-        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Diferencia Mayor o igual el umbral establecido de ${threshold}</div>`;
+        analyticsHTML += `<div class="alert-box-warning">\u{26A0} Supera o iguala el umbral establecido de ${threshold}</div>`;
       }
       summaryAnalytics.innerHTML = analyticsHTML;
 
     } else {
       averageResult.textContent = 'N/A';
-      tableStatusLabel.textContent = "Revelado";
+      tableStatusLabel.textContent = "Revealed";
       tableAverageDisplay.textContent = '?';
-      summaryAnalytics.innerHTML = '<div>No hay votos numericos.</div>';
+      summaryAnalytics.innerHTML = `
+        <div class="analytic-item">Umbral establecido: <strong>${threshold}</strong></div>
+        <div>No hay votos numericos.</div>
+      `;
     }
     clearVotesBtn.style.display = 'block';
   } else {
@@ -346,18 +354,19 @@ function renderRoom(room) {
     tableAverageDisplay.textContent = '...';
   }
 
-  moderatorControls.style.display = (room.moderatorId === socket.id) ? 'block' : 'none';
+  if (room.moderatorId === socket.id) {
+    moderatorControls.style.display = 'block';
+  } else {
+    moderatorControls.style.display = 'none';
+  }
 }
 
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
-  const selectedRole = roleSelect.value;
-  
+  myRole = roleSelect.value;
   if (!userName || !roomId) return alert('Completa todos los campos');
-  
   myName = userName;
-  myRole = selectedRole;
 
   saveSession(roomId, userName, myRole);
   socket.emit('join-room', { roomId, userName, role: myRole });
@@ -370,21 +379,15 @@ addStoryBtn.addEventListener('click', () => {
   const title = newStoryInput.value.trim();
   if (!title) return;
 
-  // Refrescar el valor actual del umbral
+  // Refrescar y capturar el valor del input al presionar el botón
   const threshold = parseInt(thresholdInput.value || 2, 10);
 
-  // Actualizar el valor global para futuras comparaciones
-  thresholdInput.dataset.currentThreshold = threshold;
-
+  // Enviar el título y el valor fresco del umbral al servidor
   socket.emit('add-story', { 
     roomId: currentRoom.id, 
-    title
+    title,
+    threshold: threshold
   });
-
-  // Re-render para recalcular inmediatamente las alertas
-  if (currentRoom) {
-    renderRoom(currentRoom);
-  }
 
   newStoryInput.value = '';
 });
@@ -403,7 +406,6 @@ toggleRoleBtn.addEventListener('click', () => {
   }
 });
 
-// Listener adicional para reajustar los radios de la mesa de forma fluida si el usuario gira el móvil
 window.addEventListener('resize', () => {
   if (currentRoom) {
     renderRoom(currentRoom);

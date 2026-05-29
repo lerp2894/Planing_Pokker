@@ -34,110 +34,82 @@ function sanitizeRoomForUser(room, userId) {
 }
 
 io.on('connection', (socket) => {
-  console.log(`Conectado: ${socket.id}`);
-
   socket.on('join-room', ({ roomId, userName, role }) => {
-    if (!roomId || !userName) return;
-    let room = rooms.get(roomId);
-    if (!room) {
-      room = {
+    socket.data.roomId = roomId;
+    socket.data.userName = userName;
+
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, {
         id: roomId,
         moderatorId: socket.id,
-        users: [],
-        stories: [],
+        status: 'waiting',
         currentStoryId: null,
-        status: 'idle',
-        lastClearBy: null
-      };
-      rooms.set(roomId, room);
+        stories: [],
+        users: [],
+        lastClearBy: null,
+        threshold: 2 // Umbral inicial por defecto
+      });
     }
 
-    let finalName = userName;
-    const exists = room.users.some(u => u.name === finalName);
-    if (exists) {
-      let counter = 1;
-      while (room.users.some(u => u.name === `${userName}(${counter})`)) counter++;
-      finalName = `${userName}(${counter})`;
+    const room = rooms.get(roomId);
+    
+    const existingUserIndex = room.users.findIndex(u => u.id === socket.id);
+    const userObj = { id: socket.id, name: userName, role: role || 'player' };
+
+    if (existingUserIndex > -1) {
+      room.users[existingUserIndex] = userObj;
+    } else {
+      room.users.push(userObj);
     }
 
-    const user = { id: socket.id, name: finalName, role };
-    room.users.push(user);
-    socket.data.roomId = roomId;
-    socket.data.userName = finalName;
+    if (!room.users.some(u => u.id === room.moderatorId)) {
+      room.moderatorId = socket.id;
+    }
+
     socket.join(roomId);
 
-    io.to(roomId).emit('room-update', sanitizeRoomForUser(room, socket.id));
+    room.users.forEach(u => {
+      io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+    });
   });
 
-  socket.on('add-story', ({ roomId, title }) => {
+  socket.on('add-story', ({ roomId, title, threshold }) => {
     const room = rooms.get(roomId);
-    if (!room || room.moderatorId !== socket.id || !title.trim()) return;
-    const newId = room.stories.length > 0 ? Math.max(...room.stories.map(s => s.id)) + 1 : 1;
-    room.stories.push({ id: newId, title: title.trim(), votes: [], revealed: false });
-    room.currentStoryId = newId;
-    room.status = 'voting';
-    room.lastClearBy = null;
-    io.to(roomId).emit('room-update', sanitizeRoomForUser(room, socket.id));
+    if (room && room.moderatorId === socket.id) {
+      // Recibe y guarda el umbral enviado desde el cliente
+      room.threshold = parseInt(threshold, 10) !== undefined ? parseInt(threshold, 10) : 2;
+
+      const newStory = {
+        id: room.stories.length + 1,
+        title,
+        votes: [],
+        revealed: false
+      };
+      room.stories.push(newStory);
+      room.currentStoryId = newStory.id;
+      room.status = 'voting';
+      room.lastClearBy = null;
+
+      room.users.forEach(u => {
+        io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+      });
+    }
   });
 
   socket.on('submit-vote', ({ roomId, storyId, value }) => {
     const room = rooms.get(roomId);
-    if (!room || room.currentStoryId !== storyId || room.status !== 'voting') return;
-    if (!VALID_VOTES.includes(value)) return;
-    const story = room.stories.find(s => s.id === storyId);
-    if (!story) return;
-    const user = room.users.find(u => u.id === socket.id);
-    if (!user || user.role !== 'player') return;
+    if (room && room.status === 'voting' && room.currentStoryId === storyId) {
+      const story = room.stories.find(s => s.id === storyId);
+      if (story && VALID_VOTES.includes(value)) {
+        const user = room.users.find(u => u.id === socket.id);
+        if (user && user.role === 'player') {
+          const existingVote = story.votes.find(v => v.userId === socket.id);
+          if (existingVote) {
+            existingVote.value = value;
+          } else {
+            story.votes.push({ userId: socket.id, value });
+          }
 
-    const existing = story.votes.find(v => v.userId === socket.id);
-    if (existing) {
-      existing.value = value;
-    } else {
-      story.votes.push({ userId: socket.id, userName: socket.data.userName, value });
-    }
-
-    const players = room.users.filter(u => u.role === 'player');
-    const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
-    if (allVoted) {
-      story.revealed = true;
-      room.status = 'revealed';
-      room.lastClearBy = null;
-    }
-
-    room.users.forEach(u => {
-      io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
-    });
-  });
-
-  socket.on('clear-votes', ({ roomId }) => {
-    const room = rooms.get(roomId);
-    if (!room || room.status !== 'revealed') return;
-    const story = room.stories.find(s => s.id === room.currentStoryId);
-    if (story) {
-      story.votes = [];
-      story.revealed = false;
-      room.status = 'voting';
-      room.lastClearBy = socket.id;
-    }
-    room.users.forEach(u => {
-      io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
-    });
-  });
-
-  socket.on('change-role', ({ roomId, newRole }) => {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    const user = room.users.find(u => u.id === socket.id);
-    if (!user) return;
-    if (newRole !== 'player' && newRole !== 'spectator') return;
-
-    user.role = newRole;
-
-    if (newRole === 'spectator' && room.currentStoryId != null) {
-      const story = room.stories.find(s => s.id === room.currentStoryId);
-      if (story) {
-        story.votes = story.votes.filter(v => v.userId !== socket.id);
-        if (room.status === 'voting') {
           const players = room.users.filter(u => u.role === 'player');
           const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
           if (allVoted) {
@@ -147,31 +119,65 @@ io.on('connection', (socket) => {
           }
         }
       }
-    }
 
-    room.users.forEach(u => {
-      io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
-    });
+      room.users.forEach(u => {
+        io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+      });
+    }
+  });
+
+  socket.on('clear-votes', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room && room.moderatorId === socket.id) {
+      const story = room.stories.find(s => s.id === room.currentStoryId);
+      if (story) {
+        story.votes = [];
+        story.revealed = false;
+        room.status = 'voting';
+        room.lastClearBy = socket.id;
+      }
+      room.users.forEach(u => {
+        io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+      });
+    }
+  });
+
+  socket.on('change-role', ({ roomId, newRole }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      const user = room.users.find(u => u.id === socket.id);
+      if (user) {
+        user.role = newRole;
+        if (newRole === 'spectator' && room.status === 'voting' && room.currentStoryId != null) {
+          const story = room.stories.find(s => s.id === room.currentStoryId);
+          if (story) {
+            const players = room.users.filter(u => u.role === 'player');
+            const allVoted = players.length > 0 && players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
+            if (allVoted) {
+              story.revealed = true;
+              room.status = 'revealed';
+              room.lastClearBy = null;
+            }
+          }
+        }
+      }
+      room.users.forEach(u => {
+        io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
+      });
+    }
   });
 
   socket.on('kick-user', ({ roomId, targetUserId }) => {
     const room = rooms.get(roomId);
-    if (!room || room.moderatorId !== socket.id) return;
-    const targetSocket = io.sockets.sockets.get(targetUserId);
-    if (targetSocket) {
-      targetSocket.emit('kicked');
-      targetSocket.leave(roomId);
+    if (room && room.moderatorId === socket.id && targetUserId !== socket.id) {
       room.users = room.users.filter(u => u.id !== targetUserId);
-      if (targetSocket.data.roomId === roomId) {
-        targetSocket.data.roomId = null;
-        targetSocket.data.userName = null;
-      }
-
+      io.to(targetUserId).emit('kicked');
+      
       if (room.status === 'voting' && room.currentStoryId != null) {
         const story = room.stories.find(s => s.id === room.currentStoryId);
         if (story) {
           const players = room.users.filter(u => u.role === 'player');
-          const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
+          const allVoted = players.length > 0 && players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
@@ -198,11 +204,11 @@ io.on('connection', (socket) => {
         room.moderatorId = room.users[0].id;
       }
 
-      if (room.status === 'voting' && room.currentStoryId != null) {
+      if (room && room.status === 'voting' && room.currentStoryId != null) {
         const story = room.stories.find(s => s.id === room.currentStoryId);
         if (story) {
           const players = room.users.filter(u => u.role === 'player');
-          const allVoted = players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
+          const allVoted = players.length > 0 && players.every(p => story.votes.some(v => v.userId === p.id && v.value != null));
           if (allVoted) {
             story.revealed = true;
             room.status = 'revealed';
@@ -211,12 +217,14 @@ io.on('connection', (socket) => {
         }
       }
 
-      room.users.forEach(u => {
-        io.to(u.id).emit('room-update', sanitizeRoomForUser(room, u.id));
-      });
+      if (rooms.has(roomId)) {
+        rooms.get(roomId).users.forEach(u => {
+          io.to(u.id).emit('room-update', sanitizeRoomForUser(rooms.get(roomId), u.id));
+        });
+      }
     }
   });
 });
 
-const PORT = 3000;
-server.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
