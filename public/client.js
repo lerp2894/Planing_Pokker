@@ -232,7 +232,7 @@ function renderRoom(room) {
 
     if (room.status === 'revealed' && user.role === 'player') {
       const uVote = story ? story.votes.find(v => v.userId === user.id) : null;
-      if (uVote && uVote.value != null && uVote.value !== -1 && diff > threshold) {
+      if (uVote && uVote.value != null && uVote.value !== -1 && diff >= threshold) {
         if (uVote.value === minValue || uVote.value === maxValue) {
           avatarCircle.classList.add('alert-outlier');
           const warningSign = document.createElement('span');
@@ -324,10 +324,10 @@ function renderRoom(room) {
       let analyticsHTML = `
         <div class="analytic-item">Voto mas bajo: <strong>${minValue}</strong></div>
         <div class="analytic-item">Voto mas alto: <strong>${maxValue}</strong></div>
-        <div class="analytic-item ${diff > threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
+        <div class="analytic-item ${diff >= threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
       `;
 
-      if (diff > threshold) {
+      if (diff >= threshold) {
         analyticsHTML += `<div class="alert-box-warning">\u{26A0} Supera el umbral establecido de ${threshold}</div>`;
       }
       summaryAnalytics.innerHTML = analyticsHTML;
