@@ -36,7 +36,7 @@ let sessionStartTime = null;
 let timerInterval = null;
 let lastClearBy = null;
 
-const FIBONACCI = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
+const FIBONACCI = [0.5,1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
 
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
