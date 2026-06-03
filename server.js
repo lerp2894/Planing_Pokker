@@ -11,7 +11,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const rooms = new Map();
-const VALID_VOTES = [1, 2, 3, 5, 8, 13, 20, 40, 100, -1];
+const VALID_VOTES = [0.5,1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
+
 
 function sanitizeRoomForUser(room, userId) {
   const copy = JSON.parse(JSON.stringify(room));
