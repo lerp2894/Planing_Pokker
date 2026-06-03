@@ -338,7 +338,7 @@ function renderRoom(room) {
       tableStatusLabel.textContent = "Revealed";
       tableAverageDisplay.textContent = '?';
       summaryAnalytics.innerHTML = `
-        <div class="analytic-item">Umbral establecido: <strong>${threshold}</strong></div>
+        <div class="analytic-item">Umbral establecido: <strong>  \(\ge \) ${threshold}</strong></div>
         <div>No hay votos numericos.</div>
       `;
     }
