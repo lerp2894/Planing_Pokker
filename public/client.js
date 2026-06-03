@@ -322,7 +322,7 @@ function renderRoom(room) {
       tableAverageDisplay.textContent = formattedAvg;
 
       let analyticsHTML = `
-        <div class="analytic-item">Umbral establecido: <strong>${threshold}</strong></div>
+        <div class="analytic-item">Umbral establecido: <strong> \u2265 ${threshold}</strong></div>
         <div class="analytic-item">Voto mas bajo: <strong>${minValue}</strong></div>
         <div class="analytic-item">Voto mas alto: <strong>${maxValue}</strong></div>
         <div class="analytic-item ${diff >= threshold ? 'alert-text' : ''}">Diferencia: <strong>${diff}</strong></div>
@@ -338,7 +338,7 @@ function renderRoom(room) {
       tableStatusLabel.textContent = "Revealed";
       tableAverageDisplay.textContent = '?';
 	  summaryAnalytics.innerHTML = `
-        <div class="analytic-item">Umbral establecido: A \u2265 <strong>\u2265 ${threshold}</strong></div>
+        <div class="analytic-item">Umbral establecido: <strong>\u2265 ${threshold}</strong></div>
         <div>No hay votos numericos.</div>
       `;
     }
