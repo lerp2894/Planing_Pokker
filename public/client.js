@@ -27,7 +27,15 @@ const pokerTable = document.getElementById('pokerTable');
 const tableStatusLabel = document.getElementById('tableStatusLabel');
 const tableAverageDisplay = document.getElementById('tableAverageDisplay');
 
-const socket = io();
+// --- CONFIGURACIÓN DEL SOCKET CON RECONEXIÓN ---
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+});
+
 let currentRoom = null;
 let myRole = 'player';
 let myName = '';
@@ -36,8 +44,62 @@ let sessionStartTime = null;
 let timerInterval = null;
 let lastClearBy = null;
 
-const FIBONACCI = [0.5,1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
+const FIBONACCI = [0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
 
+// --- HEARTBEAT DEL CLIENTE ---
+let pingInterval;
+const PING_TIME = 10000;  // cada 10 segundos
+const PONG_TIMEOUT = 5000; // esperar 5 segundos
+
+function startHeartbeat() {
+  stopHeartbeat();
+  pingInterval = setInterval(() => {
+    socket.emit('client-ping');
+    // Si no recibimos 'client-pong' en 5 segundos, forzamos reconexión
+    socket._pongTimer = setTimeout(() => {
+      console.warn('No se recibió pong del servidor, reconectando...');
+      socket.disconnect();
+      socket.connect();
+    }, PONG_TIMEOUT);
+  }, PING_TIME);
+}
+
+function stopHeartbeat() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+  if (socket._pongTimer) {
+    clearTimeout(socket._pongTimer);
+    delete socket._pongTimer;
+  }
+}
+
+socket.on('client-pong', () => {
+  if (socket._pongTimer) {
+    clearTimeout(socket._pongTimer);
+    delete socket._pongTimer;
+  }
+});
+
+// --- RECONEXIÓN AUTOMÁTICA ---
+socket.on('reconnect', () => {
+  const session = getSavedSession();
+  if (session) {
+    socket.emit('join-room', {
+      roomId: session.roomId,
+      userName: session.userName,
+      role: session.role
+    });
+    startHeartbeat();
+  }
+});
+
+socket.on('connect', () => {
+  startHeartbeat();
+});
+
+// --- PERSISTENCIA DE SESIÓN ---
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
 }
@@ -57,6 +119,7 @@ function tryAutoJoin() {
     loginScreen.classList.remove('active');
     roomScreen.classList.add('active');
     startTimer();
+    if (socket.connected) startHeartbeat();
     socket.emit('join-room', { roomId: session.roomId, userName: session.userName, role: session.role });
   } else {
     loginScreen.classList.add('active');
@@ -64,13 +127,16 @@ function tryAutoJoin() {
   }
 }
 
+// --- SALIR DE LA SALA ---
 leaveRoomBtn.addEventListener('click', () => {
   clearSavedSession();
   stopTimer();
+  stopHeartbeat();
   socket.disconnect();
   location.reload();
 });
 
+// --- CONSTRUIR CARTAS ---
 function buildCards() {
   cardsContainer.innerHTML = '';
   FIBONACCI.forEach(value => {
@@ -96,6 +162,7 @@ function selectCard(value, cardElement) {
   }
 }
 
+// --- TOAST ---
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -107,6 +174,7 @@ function showToast(message) {
   }, 4000);
 }
 
+// --- EVENTOS DEL SERVIDOR ---
 socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
@@ -121,10 +189,12 @@ socket.on('room-update', (room) => {
 socket.on('kicked', () => {
   clearSavedSession();
   stopTimer();
+  stopHeartbeat();
   alert('Has sido expulsado de la sala.');
   location.reload();
 });
 
+// --- TEMPORIZADOR ---
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -149,6 +219,7 @@ function stopTimer() {
   }
 }
 
+// --- RENDERIZADO DE LA SALA (tu código original sin cambios) ---
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
@@ -337,13 +408,12 @@ function renderRoom(room) {
       averageResult.textContent = 'N/A';
       tableStatusLabel.textContent = "Revealed";
       tableAverageDisplay.textContent = '?';
-	  summaryAnalytics.innerHTML = `
+      summaryAnalytics.innerHTML = `
         <div class="analytic-item">Umbral establecido: <strong>\u2265 ${threshold}</strong></div>
         <div>No hay votos numericos.</div>
       `;
     }
     
-    // VISIBILIDAD: Cualquier integrante de la sala ve y puede usar el botón "Repetir"
     clearVotesBtn.style.display = 'block';
 
   } else {
@@ -360,6 +430,7 @@ function renderRoom(room) {
   }
 }
 
+// --- EVENTOS DE LA INTERFAZ ---
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -372,6 +443,7 @@ joinBtn.addEventListener('click', () => {
   loginScreen.classList.remove('active');
   roomScreen.classList.add('active');
   startTimer();
+  startHeartbeat();
 });
 
 addStoryBtn.addEventListener('click', () => {
@@ -409,5 +481,12 @@ window.addEventListener('resize', () => {
   }
 });
 
+window.addEventListener('beforeunload', () => {
+  stopTimer();
+  stopHeartbeat();
+  socket.disconnect();
+});
+
+// --- INICIALIZACIÓN ---
 buildCards();
 tryAutoJoin();
