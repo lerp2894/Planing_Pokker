@@ -27,7 +27,7 @@ const pokerTable = document.getElementById('pokerTable');
 const tableStatusLabel = document.getElementById('tableStatusLabel');
 const tableAverageDisplay = document.getElementById('tableAverageDisplay');
 
-// --- CONFIGURACIÓN DEL SOCKET CON RECONEXIÓN ---
+// Configuración de reconexión agresiva
 const socket = io({
   reconnection: true,
   reconnectionAttempts: Infinity,
@@ -46,21 +46,51 @@ let lastClearBy = null;
 
 const FIBONACCI = [0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
 
-// --- HEARTBEAT DEL CLIENTE ---
+// ---------- COLA DE MENSAJES + EMISIÓN SEGURA ----------
+let pendingEmits = [];
+let isManuallyReconnecting = false;
+
+function safeEmit(event, data) {
+  if (socket.connected) {
+    socket.emit(event, data);
+  } else {
+    // Encolar para enviar en cuanto se reconecte
+    pendingEmits.push({ event, data });
+    if (!isManuallyReconnecting) {
+      isManuallyReconnecting = true;
+      console.log('Conexión perdida, forzando reconexión...');
+      socket.connect(); // Fuerza la reconexión inmediata
+    }
+  }
+}
+
+socket.on('connect', () => {
+  isManuallyReconnecting = false;
+  // Procesar todos los mensajes pendientes
+  while (pendingEmits.length > 0) {
+    const { event, data } = pendingEmits.shift();
+    socket.emit(event, data);
+  }
+});
+// ---------------------------------------------------------
+
+// ---------- HEARTBEAT ----------
 let pingInterval;
-const PING_TIME = 10000;  // cada 10 segundos
-const PONG_TIMEOUT = 5000; // esperar 5 segundos
+const PING_TIME = 10000;
+const PONG_TIMEOUT = 5000;
 
 function startHeartbeat() {
   stopHeartbeat();
   pingInterval = setInterval(() => {
-    socket.emit('client-ping');
-    // Si no recibimos 'client-pong' en 5 segundos, forzamos reconexión
-    socket._pongTimer = setTimeout(() => {
-      console.warn('No se recibió pong del servidor, reconectando...');
-      socket.disconnect();
-      socket.connect();
-    }, PONG_TIMEOUT);
+    // Usamos emit directo, no safeEmit, para no encolar latidos
+    if (socket.connected) {
+      socket.emit('client-ping');
+      socket._pongTimer = setTimeout(() => {
+        console.warn('No se recibió pong, reconectando...');
+        socket.disconnect();
+        socket.connect();
+      }, PONG_TIMEOUT);
+    }
   }, PING_TIME);
 }
 
@@ -82,11 +112,11 @@ socket.on('client-pong', () => {
   }
 });
 
-// --- RECONEXIÓN AUTOMÁTICA ---
 socket.on('reconnect', () => {
   const session = getSavedSession();
   if (session) {
-    socket.emit('join-room', {
+    // Al reconectar, reingresamos a la sala
+    safeEmit('join-room', {
       roomId: session.roomId,
       userName: session.userName,
       role: session.role
@@ -94,12 +124,9 @@ socket.on('reconnect', () => {
     startHeartbeat();
   }
 });
+// -----------------------------------
 
-socket.on('connect', () => {
-  startHeartbeat();
-});
-
-// --- PERSISTENCIA DE SESIÓN ---
+// ---------- PERSISTENCIA ----------
 function saveSession(roomId, userName, role) {
   sessionStorage.setItem('pokerSession', JSON.stringify({ roomId, userName, role }));
 }
@@ -120,14 +147,13 @@ function tryAutoJoin() {
     roomScreen.classList.add('active');
     startTimer();
     if (socket.connected) startHeartbeat();
-    socket.emit('join-room', { roomId: session.roomId, userName: session.userName, role: session.role });
+    safeEmit('join-room', { roomId: session.roomId, userName: session.userName, role: session.role });
   } else {
     loginScreen.classList.add('active');
     roomScreen.classList.remove('active');
   }
 }
 
-// --- SALIR DE LA SALA ---
 leaveRoomBtn.addEventListener('click', () => {
   clearSavedSession();
   stopTimer();
@@ -136,7 +162,7 @@ leaveRoomBtn.addEventListener('click', () => {
   location.reload();
 });
 
-// --- CONSTRUIR CARTAS ---
+// ---------- CARTAS ----------
 function buildCards() {
   cardsContainer.innerHTML = '';
   FIBONACCI.forEach(value => {
@@ -154,7 +180,7 @@ function selectCard(value, cardElement) {
   cardElement.classList.add('selected');
   selectedCardValue = value;
   if (currentRoom && currentRoom.currentStoryId != null) {
-    socket.emit('submit-vote', {
+    safeEmit('submit-vote', {
       roomId: currentRoom.id,
       storyId: currentRoom.currentStoryId,
       value
@@ -162,7 +188,6 @@ function selectCard(value, cardElement) {
   }
 }
 
-// --- TOAST ---
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
@@ -174,7 +199,7 @@ function showToast(message) {
   }, 4000);
 }
 
-// --- EVENTOS DEL SERVIDOR ---
+// ---------- EVENTOS DEL SERVIDOR ----------
 socket.on('room-update', (room) => {
   if (room.lastClearBy && room.lastClearBy !== lastClearBy) {
     const cleaner = room.users.find(u => u.id === room.lastClearBy);
@@ -194,7 +219,7 @@ socket.on('kicked', () => {
   location.reload();
 });
 
-// --- TEMPORIZADOR ---
+// ---------- TEMPORIZADOR ----------
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -219,7 +244,7 @@ function stopTimer() {
   }
 }
 
-// --- RENDERIZADO DE LA SALA (tu código original sin cambios) ---
+// ---------- RENDERIZADO DE LA SALA (sin cambios en la lógica) ----------
 function renderRoom(room) {
   currentRoom = room;
   roomTitle.textContent = room.id;
@@ -356,7 +381,7 @@ function renderRoom(room) {
       kickBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (confirm(`¿Expulsar a ${user.name}?`)) {
-          socket.emit('kick-user', { roomId: room.id, targetUserId: user.id });
+          safeEmit('kick-user', { roomId: room.id, targetUserId: user.id });
         }
       });
       slotDiv.appendChild(kickBtn);
@@ -430,7 +455,7 @@ function renderRoom(room) {
   }
 }
 
-// --- EVENTOS DE LA INTERFAZ ---
+// ---------- BOTONES (todas las emisiones usan safeEmit) ----------
 joinBtn.addEventListener('click', () => {
   const userName = userNameInput.value.trim();
   const roomId = roomIdInput.value.trim();
@@ -439,7 +464,7 @@ joinBtn.addEventListener('click', () => {
   myName = userName;
 
   saveSession(roomId, userName, myRole);
-  socket.emit('join-room', { roomId, userName, role: myRole });
+  safeEmit('join-room', { roomId, userName, role: myRole });
   loginScreen.classList.remove('active');
   roomScreen.classList.add('active');
   startTimer();
@@ -449,25 +474,18 @@ joinBtn.addEventListener('click', () => {
 addStoryBtn.addEventListener('click', () => {
   const title = newStoryInput.value.trim();
   if (!title) return;
-
   const threshold = parseInt(thresholdInput.value || 2, 10);
-
-  socket.emit('add-story', { 
-    roomId: currentRoom.id, 
-    title,
-    threshold: threshold
-  });
-
+  safeEmit('add-story', { roomId: currentRoom.id, title, threshold });
   newStoryInput.value = '';
 });
 
 clearVotesBtn.addEventListener('click', () => {
-  socket.emit('clear-votes', { roomId: currentRoom.id });
+  safeEmit('clear-votes', { roomId: currentRoom.id });
 });
 
 toggleRoleBtn.addEventListener('click', () => {
   const newRole = myRole === 'player' ? 'spectator' : 'player';
-  socket.emit('change-role', { roomId: currentRoom.id, newRole });
+  safeEmit('change-role', { roomId: currentRoom.id, newRole });
   const session = getSavedSession();
   if (session) {
     session.role = newRole;
@@ -487,6 +505,6 @@ window.addEventListener('beforeunload', () => {
   socket.disconnect();
 });
 
-// --- INICIALIZACIÓN ---
+// ---------- INICIO ----------
 buildCards();
 tryAutoJoin();
