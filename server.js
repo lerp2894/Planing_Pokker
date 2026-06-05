@@ -5,15 +5,26 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
 
+// =============================================
+// 🔁 MANTENER CONEXIONES VIVAS (evita desconexiones a los ~20 min)
+// =============================================
+server.on('connection', (socket) => {
+  socket.setKeepAlive(true, 30000); // TCP keep-alive cada 30 segundos
+});
+
+const io = new Server(server, {
+  cors: { origin: '*' },
+  pingInterval: 15000,   // Ping de Socket.io cada 15 segundos (antes 25000)
+  pingTimeout: 10000,    // Si no hay respuesta en 10 segundos, se considera desconexión
+});
+// =============================================
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const rooms = new Map();
-const VALID_VOTES = [0.5,1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
-
+const VALID_VOTES = [0.5, 1, 2, 3, 5, 8, 13, 21, 34, 55, -1];
 
 function sanitizeRoomForUser(room, userId) {
   const copy = JSON.parse(JSON.stringify(room));
@@ -127,7 +138,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // CUALQUIER USUARIO PUEDE LIMPIAR: Removida la validación estricta de moderador
+  // CUALQUIER USUARIO PUEDE LIMPIAR
   socket.on('clear-votes', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (room) {
