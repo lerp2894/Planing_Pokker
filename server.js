@@ -7,6 +7,17 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// TCP Keep-Alive: mantener vivas las conexiones inactivas
+server.on('connection', (socket) => {
+  socket.setKeepAlive(true, 30000); // 30 segundos
+});
+
+const io = new Server(server, {
+  cors: { origin: '*' },
+  pingInterval: 15000,
+  pingTimeout: 10000,
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
