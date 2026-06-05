@@ -47,6 +47,11 @@ function sanitizeRoomForUser(room, userId) {
 }
 
 io.on('connection', (socket) => {
+
+  socket.on('client-ping', () => {
+  socket.emit('client-pong');
+});
+  
   socket.on('join-room', ({ roomId, userName, role }) => {
     socket.data.roomId = roomId;
     socket.data.userName = userName;
